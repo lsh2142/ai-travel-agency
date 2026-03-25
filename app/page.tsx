@@ -1,182 +1,65 @@
-"use client";
-
-import { useState, useRef, useEffect } from "react";
-
-interface Message {
-  role: "user" | "assistant";
-  content: string;
-}
+import Image from "next/image";
 
 export default function Home() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: "assistant",
-      content:
-        "Hi! I'm your AI travel agent. Where would you like to go? I can help with destinations, itineraries, flights, hotels, and more.",
-    },
-  ]);
-  const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const text = input.trim();
-    if (!text || isLoading) return;
-
-    const nextMessages: Message[] = [
-      ...messages,
-      { role: "user", content: text },
-    ];
-    setMessages(nextMessages);
-    setInput("");
-    setIsLoading(true);
-
-    // Add empty assistant message that we'll stream into
-    setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
-
-    try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: nextMessages }),
-      });
-
-      if (!res.ok || !res.body) {
-        throw new Error(`API error: ${res.status}`);
-      }
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        setMessages((prev) => {
-          const updated = [...prev];
-          updated[updated.length - 1] = {
-            role: "assistant",
-            content: updated[updated.length - 1].content + chunk,
-          };
-          return updated;
-        });
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Something went wrong.";
-      setMessages((prev) => {
-        const updated = [...prev];
-        updated[updated.length - 1] = {
-          role: "assistant",
-          content: `Sorry, I ran into an error: ${msg}`,
-        };
-        return updated;
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
   return (
-    <div className="flex flex-col h-full bg-zinc-50 dark:bg-zinc-950 font-sans">
-      {/* Header */}
-      <header className="flex items-center gap-3 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-6 py-4">
-        <span className="text-2xl" aria-hidden="true">
-          ✈️
-        </span>
-        <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
-          AI Travel Agent
-        </h1>
-      </header>
-
-      {/* Message list */}
-      <main className="flex-1 overflow-y-auto px-4 py-6">
-        <div className="mx-auto max-w-2xl flex flex-col gap-4">
-          {messages.map((msg, i) => (
-            <div
-              key={i}
-              className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
+      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
+        <Image
+          className="dark:invert"
+          src="/next.svg"
+          alt="Next.js logo"
+          width={100}
+          height={20}
+          priority
+        />
+        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
+          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
+            To get started, edit the page.tsx file.
+          </h1>
+          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
+            Looking for a starting point or more instructions? Head over to{" "}
+            <a
+              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+              className="font-medium text-zinc-950 dark:text-zinc-50"
             >
-              <div
-                className={
-                  msg.role === "user"
-                    ? "max-w-[75%] rounded-2xl rounded-br-sm bg-zinc-900 dark:bg-zinc-100 px-4 py-3 text-sm text-white dark:text-zinc-900"
-                    : "max-w-[75%] rounded-2xl rounded-bl-sm bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100"
-                }
-              >
-                {msg.content}
-              </div>
-            </div>
-          ))}
-
-          {isLoading && messages[messages.length - 1]?.content === "" && (
-            <div className="flex justify-start">
-              <div className="rounded-2xl rounded-bl-sm bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 px-4 py-3">
-                <span className="flex gap-1">
-                  {[0, 1, 2].map((dot) => (
-                    <span
-                      key={dot}
-                      className="w-2 h-2 rounded-full bg-zinc-400 dark:bg-zinc-500 animate-bounce"
-                      style={{ animationDelay: `${dot * 150}ms` }}
-                    />
-                  ))}
-                </span>
-              </div>
-            </div>
-          )}
-
-          <div ref={bottomRef} />
+              Templates
+            </a>{" "}
+            or the{" "}
+            <a
+              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+              className="font-medium text-zinc-950 dark:text-zinc-50"
+            >
+              Learning
+            </a>{" "}
+            center.
+          </p>
+        </div>
+        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
+          <a
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
+            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Image
+              className="dark:invert"
+              src="/vercel.svg"
+              alt="Vercel logomark"
+              width={16}
+              height={16}
+            />
+            Deploy Now
+          </a>
+          <a
+            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
+            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Documentation
+          </a>
         </div>
       </main>
-
-      {/* Input area */}
-      <footer className="border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-4">
-        <form
-          onSubmit={handleSubmit}
-          className="mx-auto max-w-2xl flex items-end gap-3"
-        >
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                handleSubmit(e as unknown as React.FormEvent);
-              }
-            }}
-            placeholder="Ask me about your next trip…"
-            rows={1}
-            className={[
-              "flex-1 resize-none rounded-xl border px-4 py-3",
-              "text-sm text-zinc-900 dark:text-zinc-100",
-              "placeholder:text-zinc-400 dark:placeholder:text-zinc-500",
-              "bg-zinc-50 dark:bg-zinc-800",
-              "border-zinc-300 dark:border-zinc-700",
-              "focus:outline-none focus:ring-2 focus:ring-zinc-500 dark:focus:ring-zinc-400",
-            ].join(" ")}
-          />
-          <button
-            type="submit"
-            disabled={!input.trim() || isLoading}
-            className={[
-              "rounded-xl px-4 py-3 text-sm font-medium transition-colors",
-              "bg-zinc-900 dark:bg-zinc-100",
-              "text-white dark:text-zinc-900",
-              "hover:bg-zinc-700 dark:hover:bg-zinc-300",
-              "disabled:opacity-40 disabled:cursor-not-allowed",
-            ].join(" ")}
-          >
-            Send
-          </button>
-        </form>
-        <p className="mx-auto mt-2 max-w-2xl text-xs text-zinc-400 dark:text-zinc-500 text-center">
-          Press Enter to send · Shift+Enter for a new line
-        </p>
-      </footer>
     </div>
   );
 }

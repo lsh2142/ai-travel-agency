@@ -1,37 +1,19 @@
-import { TravelPlanner, type ChatMessage } from "@/lib/ai/planner";
+import { NextRequest, NextResponse } from 'next/server';
+import { TravelPlanner } from '@/lib/ai/planner';
+import type { ChatMessage } from '@/types';
 
-const planner = new TravelPlanner();
+export const runtime = 'nodejs';
 
-export async function POST(request: Request) {
-  let messages: ChatMessage[];
-
+export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    messages = body.messages;
-    if (!Array.isArray(messages) || messages.length === 0) {
-      return Response.json({ error: "messages array required" }, { status: 400 });
-    }
-  } catch {
-    return Response.json({ error: "Invalid JSON" }, { status: 400 });
+    const body = await request.json() as { messages: ChatMessage[]; userMessage: string };
+    const { messages, userMessage } = body;
+    if (!userMessage?.trim()) return NextResponse.json({ error: 'Message is required' }, { status: 400 });
+    const planner = new TravelPlanner();
+    const response = await planner.chat(messages ?? [], userMessage);
+    return NextResponse.json({ message: response });
+  } catch (error) {
+    console.error('Chat API error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-
-  const encoder = new TextEncoder();
-  const stream = new ReadableStream({
-    async start(controller) {
-      try {
-        for await (const chunk of planner.streamResponse(messages)) {
-          controller.enqueue(encoder.encode(chunk));
-        }
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : "Unknown error";
-        controller.enqueue(encoder.encode(`\n[Error: ${msg}]`));
-      } finally {
-        controller.close();
-      }
-    },
-  });
-
-  return new Response(stream, {
-    headers: { "Content-Type": "text/plain; charset=utf-8" },
-  });
 }

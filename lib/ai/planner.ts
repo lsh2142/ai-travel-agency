@@ -36,6 +36,32 @@ export class TravelPlanner {
     return content.text;
   }
 
+  async *chatStream(messages: ChatMessage[], userMessage: string): AsyncGenerator<string> {
+    const formattedMessages = [
+      ...messages.map((m) => ({
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+      })),
+      { role: 'user' as const, content: userMessage },
+    ];
+
+    const stream = this.client.messages.stream({
+      model: this.model,
+      max_tokens: 4096,
+      system: TRAVEL_PLANNER_SYSTEM_PROMPT,
+      messages: formattedMessages,
+    });
+
+    for await (const event of stream) {
+      if (
+        event.type === 'content_block_delta' &&
+        event.delta.type === 'text_delta'
+      ) {
+        yield event.delta.text;
+      }
+    }
+  }
+
   async generateTravelPlan(request: TravelRequest): Promise<TravelPlan> {
     const prompt = `다음 여행 조건으로 상세한 여행 계획을 JSON 형식으로 작성해주세요:
 - 목적지: ${request.destination}

@@ -1,7 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { BookingSite } from '@/types';
+import { MonitorScheduler } from '@/lib/monitor/scheduler';
 
 export const runtime = 'nodejs';
+
+const scheduler = new MonitorScheduler();
+
+export async function GET(_request: NextRequest) {
+  try {
+    const jobs = await scheduler.listJobs();
+    return NextResponse.json({ jobs });
+  } catch (error) {
+    console.error('Monitor GET error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {

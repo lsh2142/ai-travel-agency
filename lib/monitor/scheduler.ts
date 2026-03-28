@@ -23,8 +23,13 @@ export class MonitorScheduler {
   private isAvailable = false;
 
   constructor(redisUrl?: string) {
+    const resolvedUrl = redisUrl ?? process.env.REDIS_URL;
+    if (!resolvedUrl) {
+      console.warn('[MonitorScheduler] REDIS_URL not set, scheduler disabled');
+      return;
+    }
     try {
-      const conn = new IORedis(redisUrl ?? process.env.REDIS_URL ?? 'redis://localhost:6379', {
+      const conn = new IORedis(resolvedUrl, {
         maxRetriesPerRequest: null,
         lazyConnect: true,
       });

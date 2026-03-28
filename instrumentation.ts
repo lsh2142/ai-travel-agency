@@ -4,6 +4,7 @@
 // .env.local (Next.js never overrides existing env vars). This function
 // detects that case and loads the key directly from .env.local.
 export async function register() {
+  if (process.env.NEXT_RUNTIME !== 'nodejs') return;
   if (process.env.ANTHROPIC_API_KEY) {
     return; // already set to a real value
   }

@@ -73,6 +73,14 @@ export class MonitorScheduler {
     return job.id ?? data.jobId;
   }
 
+  async listJobs(): Promise<Array<{ jobId: string; key: string; next: number }>> {
+    if (!this.isAvailable || !this.queue) {
+      return [];
+    }
+    const jobs = await this.queue.getRepeatableJobs();
+    return jobs.map((j) => ({ jobId: j.id ?? '', key: j.key, next: j.next ?? 0 }));
+  }
+
   async removeJob(jobId: string): Promise<void> {
     if (!this.isAvailable || !this.queue) {
       console.warn('[MonitorScheduler] removeJob skipped: Redis unavailable');

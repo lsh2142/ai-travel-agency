@@ -1,7 +1,26 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import ReactMarkdown from 'react-markdown';
 import type { ChatMessage } from '@/types';
+
+interface MonitorForm {
+  accommodationName: string;
+  url: string;
+  checkIn: string;
+  checkOut: string;
+  guests: string;
+  telegramId: string;
+}
+
+const EMPTY_FORM: MonitorForm = {
+  accommodationName: '',
+  url: '',
+  checkIn: '',
+  checkOut: '',
+  guests: '2',
+  telegramId: '',
+};
 
 const PROGRESS_STEPS = [
   '여행 조건 분석 중...',
@@ -25,6 +44,9 @@ export default function ChatPage() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [progressStep, setProgressStep] = useState<string | null>(null);
+  const [monitorOpen, setMonitorOpen] = useState(false);
+  const [monitorForm, setMonitorForm] = useState<MonitorForm>(EMPTY_FORM);
+  const [monitorSubmitting, setMonitorSubmitting] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isStreamingRef = useRef(false);
 
@@ -146,6 +168,55 @@ export default function ChatPage() {
     sendMessage(input);
   }, [input, sendMessage]);
 
+  const openMonitorModal = useCallback(() => {
+    setMonitorForm(EMPTY_FORM);
+    setMonitorOpen(true);
+  }, []);
+
+  const handleMonitorSubmit = useCallback(async () => {
+    const { accommodationName, url, checkIn, checkOut, guests, telegramId } = monitorForm;
+    if (!accommodationName || !checkIn || !checkOut) return;
+    setMonitorSubmitting(true);
+    try {
+      const siteMap: Record<string, string> = { jalan: 'jalan', rakuten: 'rakuten', hitou: 'hitou' };
+      const detectedSite = Object.keys(siteMap).find((k) => url.includes(k)) ?? 'jalan';
+      const res = await fetch('/api/monitor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accommodationId: crypto.randomUUID(),
+          accommodationName,
+          url: url || `https://www.jalan.net/`,
+          site: detectedSite,
+          checkIn,
+          checkOut,
+          guests: Number(guests) || 2,
+          userId: telegramId,
+        }),
+      });
+      const data = await res.json() as { success?: boolean; error?: string };
+      setMonitorOpen(false);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: data.success
+            ? `✅ 모니터링이 등록됐어요! **${accommodationName}** (${checkIn} ~ ${checkOut}, ${guests}명)\n빈방 발생 시 텔레그램으로 알림을 보내드립니다.`
+            : `❌ 등록 실패: ${data.error ?? '알 수 없는 오류'}`,
+          timestamp: new Date(),
+        },
+      ]);
+    } catch {
+      setMonitorOpen(false);
+      setMessages((prev) => [
+        ...prev,
+        { role: 'assistant', content: '❌ 모니터링 등록 중 오류가 발생했습니다.', timestamp: new Date() },
+      ]);
+    } finally {
+      setMonitorSubmitting(false);
+    }
+  }, [monitorForm]);
+
   return (
     <div className="flex flex-col h-screen bg-gray-50">
       <header className="bg-white border-b px-6 py-4 shadow-sm flex justify-between items-center">
@@ -206,8 +277,17 @@ export default function ChatPage() {
                 <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
                   <span>🤖</span>
                 </div>
-                <div className="max-w-[80%] rounded-2xl px-4 py-3 bg-white border border-gray-200 text-gray-800 shadow-sm">
-                  <p className="whitespace-pre-wrap text-sm">{text}</p>
+                <div className="max-w-[80%] rounded-2xl px-4 py-3 bg-white border border-gray-200 text-gray-800 shadow-sm prose prose-sm max-w-none">
+                  <ReactMarkdown>{text}</ReactMarkdown>
+                  <div className="mt-3 pt-3 border-t border-gray-100">
+                    <button
+                      onClick={openMonitorModal}
+                      disabled={isLoading}
+                      className="text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5 transition-colors disabled:opacity-40"
+                    >
+                      🔔 빈방 모니터링 등록
+                    </button>
+                  </div>
                 </div>
               </div>
               {options.length > 0 && (
@@ -245,6 +325,93 @@ export default function ChatPage() {
 
         <div ref={messagesEndRef} />
       </main>
+
+      {monitorOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6">
+            <h2 className="text-lg font-bold text-gray-800 mb-4">🔔 빈방 모니터링 등록</h2>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">호텔명 *</label>
+                <input
+                  type="text"
+                  value={monitorForm.accommodationName}
+                  onChange={(e) => setMonitorForm((f) => ({ ...f, accommodationName: e.target.value }))}
+                  placeholder="예: 료칸 하나노유"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">예약 사이트 URL (선택)</label>
+                <input
+                  type="url"
+                  value={monitorForm.url}
+                  onChange={(e) => setMonitorForm((f) => ({ ...f, url: e.target.value }))}
+                  placeholder="https://www.jalan.net/..."
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className="block text-xs font-medium text-gray-600 mb-1">체크인 *</label>
+                  <input
+                    type="date"
+                    value={monitorForm.checkIn}
+                    onChange={(e) => setMonitorForm((f) => ({ ...f, checkIn: e.target.value }))}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-xs font-medium text-gray-600 mb-1">체크아웃 *</label>
+                  <input
+                    type="date"
+                    value={monitorForm.checkOut}
+                    onChange={(e) => setMonitorForm((f) => ({ ...f, checkOut: e.target.value }))}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">인원 수</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={monitorForm.guests}
+                  onChange={(e) => setMonitorForm((f) => ({ ...f, guests: e.target.value }))}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">텔레그램 채팅 ID</label>
+                <input
+                  type="text"
+                  value={monitorForm.telegramId}
+                  onChange={(e) => setMonitorForm((f) => ({ ...f, telegramId: e.target.value }))}
+                  placeholder="예: 123456789"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-5">
+              <button
+                onClick={() => setMonitorOpen(false)}
+                disabled={monitorSubmitting}
+                className="flex-1 rounded-xl border border-gray-300 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleMonitorSubmit}
+                disabled={monitorSubmitting || !monitorForm.accommodationName || !monitorForm.checkIn || !monitorForm.checkOut}
+                className="flex-1 rounded-xl bg-blue-500 py-2.5 text-sm font-medium text-white hover:bg-blue-600 transition-colors disabled:opacity-50"
+              >
+                {monitorSubmitting ? '등록 중...' : '등록하기'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <footer className="bg-white border-t px-4 py-4">
         <div className="flex gap-3 max-w-4xl mx-auto">

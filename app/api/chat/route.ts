@@ -1,8 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { TravelPlanner } from '@/lib/ai/planner';
+import { DbAdapter } from '@/lib/db/adapter';
 import type { ChatMessage } from '@/types';
 
 export const runtime = 'nodejs';
+
+export async function GET(request: NextRequest) {
+  const sessionId = request.nextUrl.searchParams.get('sessionId');
+  if (!sessionId) {
+    return NextResponse.json({ error: 'sessionId is required' }, { status: 400 });
+  }
+
+  const db = new DbAdapter();
+  const messages = await db.getChatHistory(sessionId);
+  return NextResponse.json({ sessionId, messages });
+}
 
 export async function POST(request: NextRequest) {
   let body: { messages: ChatMessage[]; userMessage: string };

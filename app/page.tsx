@@ -1,8 +1,22 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import ReactMarkdown from 'react-markdown';
 import type { ChatMessage } from '@/types';
+
+export const MONITOR_JOBS_KEY = 'monitor_jobs';
+
+export interface MonitorJob {
+  jobId: string;
+  accommodationName: string;
+  url: string;
+  checkIn: string;
+  checkOut: string;
+  guests: number;
+  telegramId: string;
+  registeredAt: string;
+}
 
 interface MonitorForm {
   accommodationName: string;
@@ -194,8 +208,24 @@ export default function ChatPage() {
           userId: telegramId,
         }),
       });
-      const data = await res.json() as { success?: boolean; error?: string };
+      const data = await res.json() as { success?: boolean; jobId?: string; error?: string };
       setMonitorOpen(false);
+      if (data.success && data.jobId) {
+        const job: MonitorJob = {
+          jobId: data.jobId,
+          accommodationName,
+          url: url || 'https://www.jalan.net/',
+          checkIn,
+          checkOut,
+          guests: Number(guests) || 2,
+          telegramId,
+          registeredAt: new Date().toISOString(),
+        };
+        try {
+          const existing = JSON.parse(localStorage.getItem(MONITOR_JOBS_KEY) ?? '[]') as MonitorJob[];
+          localStorage.setItem(MONITOR_JOBS_KEY, JSON.stringify([...existing, job]));
+        } catch { /* 무시 */ }
+      }
       setMessages((prev) => [
         ...prev,
         {
@@ -219,18 +249,28 @@ export default function ChatPage() {
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">
-      <header className="bg-white border-b px-6 py-4 shadow-sm flex justify-between items-center">
-        <div>
+      <header className="bg-white border-b shadow-sm">
+        <div className="px-6 py-3 flex justify-between items-center">
           <h1 className="text-xl font-bold text-gray-800">AI 여행 플래닝 에이전트</h1>
-          <p className="text-sm text-gray-500">여행 조건을 알려주시면 최적의 코스와 숙소를 찾아드립니다</p>
+          <button
+            onClick={handleClearMessages}
+            disabled={isLoading || messages.length === 0}
+            className="text-sm text-gray-400 hover:text-red-500 disabled:opacity-30 border border-gray-200 rounded-lg px-3 py-1 transition-colors"
+          >
+            대화 초기화
+          </button>
         </div>
-        <button
-          onClick={handleClearMessages}
-          disabled={isLoading || messages.length === 0}
-          className="text-sm text-gray-400 hover:text-red-500 disabled:opacity-30 border border-gray-200 rounded-lg px-3 py-1 transition-colors"
-        >
-          대화 초기화
-        </button>
+        <nav className="flex px-6 gap-1 border-t border-gray-100">
+          <span className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-blue-600 border-b-2 border-blue-500">
+            💬 채팅
+          </span>
+          <Link
+            href="/monitors"
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-sm text-gray-500 hover:text-gray-800 border-b-2 border-transparent hover:border-gray-300 transition-colors"
+          >
+            🔔 모니터링
+          </Link>
+        </nav>
       </header>
 
       <main className="flex-1 overflow-y-auto px-4 py-6 space-y-4">

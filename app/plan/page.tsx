@@ -181,6 +181,23 @@ export default function PlanPage() {
     if (!stored) { router.replace('/'); return }
     const p = JSON.parse(stored) as TravelParams
     setParams(p)
+
+    // 이미 완성된 플랜이 캐시에 있으면 재생성 스킵
+    const cached = sessionStorage.getItem('tripPlan')
+    if (cached) {
+      try {
+        const cachedPlan = JSON.parse(cached) as TripPlan
+        if (cachedPlan.days?.length > 0) {
+          setDays(cachedPlan.days)
+          setBookingItems(cachedPlan.bookingItems ?? [])
+          setIsGenerating(false)
+          return
+        }
+      } catch {
+        // 캐시 파싱 실패 시 재생성
+      }
+    }
+
     startGeneration(p)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])

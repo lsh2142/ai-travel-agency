@@ -73,6 +73,8 @@ export default function HomePage() {
       freeText: chatInput || params.freeText,
     }
     sessionStorage.setItem('travelParams', JSON.stringify(finalParams))
+    // 새 여행 시작 시 이전 플랜 캐시 초기화
+    sessionStorage.removeItem('tripPlan')
     router.push('/plan')
   }
 

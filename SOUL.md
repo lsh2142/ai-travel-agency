@@ -125,3 +125,47 @@ Dispatch → 사용자 보고
 
 *마지막 업데이트: 2026-03-29*
 *이 문서는 PM 에이전트가 관리합니다.*
+
+---
+
+## 🌿 브랜치 명명 규칙
+
+모든 에이전트는 작업 내용이 명확히 드러나는 브랜치명을 사용해야 합니다.
+
+### 형식
+```
+<type>/<작업-내용-요약>
+```
+
+### type 종류
+| type | 사용 시점 |
+|------|---------|
+| `feat` | 새 기능 추가 |
+| `fix` | 버그 수정 |
+| `refactor` | 리팩토링 (기능 변경 없음) |
+| `docs` | 문서 작업 |
+| `style` | UI/UX 스타일 변경 |
+| `chore` | 빌드, 설정, 의존성 변경 |
+| `test` | 테스트 추가/수정 |
+
+### 예시
+```
+feat/dashboard-agent-keypanel    ✅
+feat/ui-ux-quick-actions-bar     ✅
+fix/chat-unauthorized-redirect   ✅
+fix/serpapi-key-env-fallback     ✅
+style/flight-card-shadcn-ui      ✅
+docs/soul-branch-naming-rules    ✅
+
+feature/dashboard-streamlit      ⚠️ (type/ 없음)
+claude/eloquent-ptolemy          ❌ (의미없는 자동생성명)
+wizardly-mendel                  ❌ (작업 내용 불명확)
+```
+
+### 규칙
+1. **소문자 + 하이픈** 사용 (언더스코어, 대문자 금지)
+2. **30자 이내**로 간결하게
+3. **한국어 사용 금지** (git 호환성)
+4. `claude/*` 자동 생성 브랜치명은 **즉시 rename** 후 작업
+
+*이 규칙은 형상관리 에이전트가 머지 요청 시 브랜치명을 검토합니다.*

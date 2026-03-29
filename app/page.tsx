@@ -656,6 +656,43 @@ export default function ChatPage() {
                     >
                       {text}
                     </ReactMarkdown>
+                    {showDatePicker && idx === messages.length - 1 && (
+                      <div className="mt-3 p-4 rounded-xl bg-zinc-50 border border-zinc-200">
+                        <p className="text-xs text-zinc-500 mb-3">✈️ 출발일과 귀국일을 선택하면 항공편을 검색할게요</p>
+                        <div className="flex gap-3 flex-wrap items-end">
+                          <div className="flex-1 min-w-[130px]">
+                            <label className="text-xs text-zinc-500 mb-1 block">출발일</label>
+                            <input
+                              type="date"
+                              value={pendingDates.depart}
+                              onChange={(e) => setPendingDates((p) => ({ ...p, depart: e.target.value }))}
+                              className="w-full bg-white border border-zinc-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div className="flex-1 min-w-[130px]">
+                            <label className="text-xs text-zinc-500 mb-1 block">귀국일</label>
+                            <input
+                              type="date"
+                              value={pendingDates.return}
+                              onChange={(e) => setPendingDates((p) => ({ ...p, return: e.target.value }))}
+                              className="w-full bg-white border border-zinc-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                          <button
+                            onClick={() => {
+                              if (pendingDates.depart) {
+                                sendMessage(`출발일 ${pendingDates.depart}, 귀국일 ${pendingDates.return || '미정'}으로 항공편과 숙소를 찾아줘`);
+                                setShowDatePicker(false);
+                              }
+                            }}
+                            disabled={!pendingDates.depart || isLoading}
+                            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-zinc-200 disabled:text-zinc-400 text-white rounded-lg text-sm transition-colors"
+                          >
+                            검색하기
+                          </button>
+                        </div>
+                      </div>
+                    )}
                     <div className="mt-3 pt-3 border-t border-gray-100">
                       <button
                         onClick={openMonitorModal}

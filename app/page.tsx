@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import ReactMarkdown from 'react-markdown';
 import type { ChatMessage } from '@/types';
+import type { FlightResult, FlightSearchParams } from '@/lib/flights/types';
 
 export const MONITOR_JOBS_KEY = 'monitor_jobs';
 
@@ -45,12 +46,75 @@ const PROGRESS_STEPS = [
 
 const STORAGE_KEY = 'travel_chat_messages';
 
-function parseMessageContent(content: string): { text: string; options: string[] } {
-  const match = content.match(/\[OPTIONS:\s*([^\]]+)\]/);
-  if (!match) return { text: content, options: [] };
-  const options = match[1].split('|').map((s) => s.trim()).filter(Boolean);
-  const text = content.replace(match[0], '').trim();
-  return { text, options };
+function parseMessageContent(content: string): { text: string; options: string[]; flightParams: FlightSearchParams | null } {
+  let text = content;
+  const options: string[] = [];
+  let flightParams: FlightSearchParams | null = null;
+
+  const optionsMatch = text.match(/\[OPTIONS:\s*([^\]]+)\]/);
+  if (optionsMatch) {
+    options.push(...optionsMatch[1].split('|').map((s) => s.trim()).filter(Boolean));
+    text = text.replace(optionsMatch[0], '').trim();
+  }
+
+  const flightMatch = text.match(/\[FLIGHTS_SEARCH:\s*(\{[^}]+\})\]/);
+  if (flightMatch) {
+    try {
+      flightParams = JSON.parse(flightMatch[1]) as FlightSearchParams;
+    } catch {
+      // 파싱 실패 시 무시
+    }
+    text = text.replace(flightMatch[0], '').trim();
+  }
+
+  return { text, options, flightParams };
+}
+
+function FlightCard({ flight }: { flight: FlightResult }) {
+  const priceFormatted = new Intl.NumberFormat('ko-KR').format(flight.price);
+  return (
+    <div className="border border-gray-200 rounded-xl p-3 bg-white shadow-sm hover:shadow-md transition-shadow">
+      <div className="flex justify-between items-start gap-2">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 text-sm font-medium text-gray-800">
+            <span>{flight.airline}</span>
+            <span className="text-xs text-gray-400">{flight.flightNumber}</span>
+          </div>
+          <div className="flex items-center gap-2 mt-1">
+            <span className="text-base font-bold">{flight.departureTime.split(' ')[1] ?? flight.departureTime}</span>
+            <span className="text-xs text-gray-400">→</span>
+            <span className="text-base font-bold">{flight.arrivalTime.split(' ')[1] ?? flight.arrivalTime}</span>
+          </div>
+          <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
+            <span>{flight.origin} → {flight.destination}</span>
+            <span>·</span>
+            <span>{flight.duration}</span>
+            <span>·</span>
+            <span>{flight.stops === 0 ? '직항' : `경유 ${flight.stops}회`}</span>
+          </div>
+        </div>
+        <div className="text-right flex-shrink-0">
+          <div className="text-lg font-bold text-blue-600">
+            ₩{priceFormatted}
+          </div>
+          {flight.bookingUrl ? (
+            <a
+              href={flight.bookingUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-1 inline-block text-xs bg-blue-500 text-white rounded-lg px-3 py-1 hover:bg-blue-600 transition-colors"
+            >
+              예약하기
+            </a>
+          ) : (
+            <span className="mt-1 inline-block text-xs bg-gray-100 text-gray-500 rounded-lg px-3 py-1">
+              가격 확인
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function ChatPage() {
@@ -61,6 +125,8 @@ export default function ChatPage() {
   const [monitorOpen, setMonitorOpen] = useState(false);
   const [monitorForm, setMonitorForm] = useState<MonitorForm>(EMPTY_FORM);
   const [monitorSubmitting, setMonitorSubmitting] = useState(false);
+  const [flightResults, setFlightResults] = useState<Record<number, FlightResult[]>>({});
+  const [flightLoading, setFlightLoading] = useState<Record<number, boolean>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isStreamingRef = useRef(false);
 
@@ -177,6 +243,37 @@ export default function ChatPage() {
       setIsLoading(false);
     }
   }, [isLoading, messages]);
+
+  // 스트리밍 완료 후 FLIGHTS_SEARCH 마커 감지 → 자동 항공권 검색
+  useEffect(() => {
+    if (isLoading) return;
+    const lastIdx = messages.length - 1;
+    const last = messages[lastIdx];
+    if (!last || last.role !== 'assistant') return;
+    if (flightResults[lastIdx] !== undefined || flightLoading[lastIdx]) return;
+
+    const { flightParams } = parseMessageContent(last.content);
+    if (!flightParams) return;
+
+    setFlightLoading((prev) => ({ ...prev, [lastIdx]: true }));
+    fetch('/api/flights', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(flightParams),
+    })
+      .then((res) => res.json() as Promise<{ flights?: FlightResult[]; error?: string }>)
+      .then((data) => {
+        setFlightResults((prev) => ({ ...prev, [lastIdx]: data.flights ?? [] }));
+      })
+      .catch((err) => {
+        console.error('Flight search error:', err);
+        setFlightResults((prev) => ({ ...prev, [lastIdx]: [] }));
+      })
+      .finally(() => {
+        setFlightLoading((prev) => ({ ...prev, [lastIdx]: false }));
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading]);
 
   const handleSubmit = useCallback(() => {
     sendMessage(input);
@@ -310,7 +407,9 @@ export default function ChatPage() {
             );
           }
 
-          const { text, options } = parseMessageContent(msg.content);
+          const { text, options, flightParams } = parseMessageContent(msg.content);
+          const msgFlights = flightResults[idx];
+          const msgFlightLoading = flightLoading[idx];
           return (
             <div key={idx} className="flex flex-col items-start gap-2">
               <div className="flex items-start gap-2">
@@ -330,6 +429,28 @@ export default function ChatPage() {
                   </div>
                 </div>
               </div>
+              {/* 항공편 검색 결과 카드 */}
+              {flightParams && (msgFlightLoading || msgFlights) && (
+                <div className="pl-10 w-full max-w-2xl">
+                  <div className="text-xs font-medium text-gray-500 mb-2 flex items-center gap-1">
+                    ✈️ 항공편 검색 결과
+                    <span className="text-gray-400">
+                      ({flightParams.origin} → {flightParams.destination}, {flightParams.departureDate})
+                    </span>
+                  </div>
+                  {msgFlightLoading ? (
+                    <div className="text-sm text-gray-400 py-2">항공편 검색 중...</div>
+                  ) : msgFlights && msgFlights.length > 0 ? (
+                    <div className="space-y-2">
+                      {msgFlights.map((flight, fi) => (
+                        <FlightCard key={fi} flight={flight} />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-400 py-2">검색 결과가 없습니다.</div>
+                  )}
+                </div>
+              )}
               {options.length > 0 && (
                 <div className="flex flex-wrap gap-2 pl-10">
                   {options.map((opt, oi) => (

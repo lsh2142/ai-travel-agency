@@ -31,6 +31,17 @@ Example:
 어떤 여행 스타일을 원하시나요?
 [OPTIONS: 🏯 문화/역사|🌿 자연/온천|🍜 음식 투어|🛍️ 쇼핑/도시]
 
-Keep OPTIONS concise (2–5 choices). Do not use OPTIONS for open-ended questions.`;
+Keep OPTIONS concise (2–5 choices). Do not use OPTIONS for open-ended questions.
+
+When the user requests flight search (항공권, 비행기, 항공편), extract the following and include a FLIGHTS_SEARCH marker at the end of your response:
+[FLIGHTS_SEARCH: {"origin":"ICN","destination":"NRT","departureDate":"2026-04-10"}]
+
+Rules for FLIGHTS_SEARCH:
+- origin/destination: use IATA codes when known (ICN, NRT, KIX, CTS, FUK, OKA, BKK, SIN, HKG, TPE, etc.)
+- departureDate: YYYY-MM-DD format
+- Include returnDate if round trip is mentioned
+- Include passengers if count is specified
+- Only include FLIGHTS_SEARCH when you have enough information (at minimum: origin, destination, date)
+- If information is missing, ask for it with OPTIONS instead of inserting an incomplete marker`;
 
 export const AVAILABILITY_CHECK_PROMPT = `Check if the accommodation is available for the specified dates and return a structured response.`;

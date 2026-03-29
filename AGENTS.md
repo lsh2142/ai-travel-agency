@@ -6,7 +6,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 # AI Travel Agent — 에이전트 레지스트리
 
-> 마지막 업데이트: 2026-03-29
+> 마지막 업데이트: 2026-03-29 (2차 갱신)
 > 관리: PM 에이전트
 > 프로젝트 경로: /Users/claw/ai-travel-agent
 
@@ -104,8 +104,10 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 | 우선순위 | 작업 | 담당 에이전트 | 상태 | 블로커 |
 |---------|------|--------------|------|--------|
-| P1 | Streamlit 전광판 구현 | 개발 에이전트 (별도) | 🔄 진행 중 | — |
-| P1 | SerpAPI Key 연결 | 개발 에이전트 | ⏳ 대기 | SerpAPI Key 미제공 |
+| P1 | Streamlit 실시간 개발 전광판 | 개발 에이전트 | ✅ 완료 | — (feature/dashboard-streamlit 머지됨) |
+| P1 | SerpAPI Key fallback 처리 | 개발 에이전트 | ✅ 완료 | — (SERP_API_KEY 폴백 추가됨) |
+| P1 | 미인증 사용자 /auth 리다이렉트 | 개발 에이전트 | ✅ 완료 | — (wizardly-mendel 머지됨) |
+| P1 | SerpAPI 실제 키 환경변수 주입 | — | ⏳ 대기 | 실제 SerpAPI Key 미제공 |
 | P2 | Vercel 배포 | 형상관리 에이전트 | ⏳ 대기 | 환경변수 설정 필요 |
 
 ---
@@ -133,12 +135,14 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 | 날짜 | 마일스톤 | 브랜치 |
 |------|---------|--------|
-| 최근 | 마크다운 GFM 렌더링 + 탭 전환 상태 보존 | `interesting-yalow` |
-| 최근 | shadcn/ui + FlightCard UX + /itinerary 대시보드 | `feat/itinerary-ui` |
-| 최근 | MVP-1/2 딥링크 엔진 & 여행 일정 상태 관리 | `peaceful-blackwell` |
-| 최근 | Supabase Auth 인증 (Phase 3) | `clever-ellis` |
-| 최근 | Redis BullMQ 모니터링 스케줄러 | `tender-blackburn` |
-| 최근 | GET /api/chat 히스토리 API | `priceless-chatelet` |
+| 2026-03-29 | 미인증 사용자 /auth 리다이렉트 보호 | `wizardly-mendel` |
+| 2026-03-29 | Streamlit 실시간 개발 전광판 (dashboard/) | `feature/dashboard-streamlit` |
+| 2026-03-29 | 마크다운 GFM 렌더링 + 탭 전환 상태 보존 | `interesting-yalow` |
+| 이전 | shadcn/ui + FlightCard UX + /itinerary 대시보드 | `feat/itinerary-ui` |
+| 이전 | MVP-1/2 딥링크 엔진 & 여행 일정 상태 관리 | `peaceful-blackwell` |
+| 이전 | Supabase Auth 인증 (Phase 3) | `clever-ellis` |
+| 이전 | Redis BullMQ 모니터링 스케줄러 | `tender-blackburn` |
+| 이전 | GET /api/chat 히스토리 API | `priceless-chatelet` |
 | 이전 | Supabase/메모리 persistence 어댑터 패턴 | `quizzical-cray` |
 | 이전 | 항공권 검색 Provider 패턴 (SerpAPI/Amadeus) | `determined-dubinsky` |
 | 이전 | Vercel 배포 설정 | `priceless-hellman` |

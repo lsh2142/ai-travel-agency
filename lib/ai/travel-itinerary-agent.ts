@@ -74,6 +74,196 @@ ${params.freeText ? `- 추가 요청사항: ${params.freeText}` : ''}
   return prompt
 }
 
+// ─── 증분 스트림 파서 ─────────────────────────────────────────────────────────
+
+/**
+ * 버퍼에서 괄호 균형이 맞는 JSON 객체를 추출한다.
+ * 불완전(스트리밍 중)이면 null 반환.
+ */
+function extractBalancedJson(text: string, startPos: number): string | null {
+  let depth = 0
+  let inString = false
+  let escape = false
+
+  for (let i = startPos; i < text.length; i++) {
+    const ch = text[i]
+    if (escape) { escape = false; continue }
+    if (ch === '\\' && inString) { escape = true; continue }
+    if (ch === '"') { inString = !inString; continue }
+    if (inString) continue
+    if (ch === '{') depth++
+    else if (ch === '}') {
+      depth--
+      if (depth === 0) return text.slice(startPos, i + 1)
+    }
+  }
+  return null
+}
+
+export interface StreamBlock {
+  type: 'day'
+  day: TripDay
+}
+
+export interface AltBlock {
+  type: 'alt'
+  itemRef: string
+  alternatives: Alternative[]
+}
+
+export type ParsedBlock = StreamBlock | AltBlock
+
+/**
+ * 버퍼에서 완성된 [DAY:] / [ALTERNATIVES:] 블록을 순서대로 추출한다.
+ * consumed: 다음 호출 시 fromPos 로 넘겨야 할 오프셋.
+ */
+export function extractBlocksFromBuffer(
+  buffer: string,
+  fromPos: number
+): { blocks: ParsedBlock[]; consumed: number } {
+  const blocks: ParsedBlock[] = []
+  let pos = fromPos
+
+  while (pos < buffer.length) {
+    const dayIdx = buffer.indexOf('[DAY:', pos)
+    const altIdx = buffer.indexOf('[ALTERNATIVES:', pos)
+
+    let nextIdx = -1
+    let blockType: 'day' | 'alt' = 'day'
+
+    if (dayIdx === -1 && altIdx === -1) break
+    if (dayIdx === -1) { nextIdx = altIdx; blockType = 'alt' }
+    else if (altIdx === -1) { nextIdx = dayIdx; blockType = 'day' }
+    else if (dayIdx <= altIdx) { nextIdx = dayIdx; blockType = 'day' }
+    else { nextIdx = altIdx; blockType = 'alt' }
+
+    const jsonStart = buffer.indexOf('{', nextIdx)
+    if (jsonStart === -1) break
+
+    const json = extractBalancedJson(buffer, jsonStart)
+    if (json === null) break // 아직 완성 안 됨 — 청크 더 기다림
+
+    const closingBracket = buffer.indexOf(']', jsonStart + json.length - 1)
+    const nextPos = closingBracket !== -1 ? closingBracket + 1 : jsonStart + json.length
+
+    try {
+      const data = JSON.parse(json) as Record<string, unknown>
+
+      if (blockType === 'day') {
+        const items: TripDayItem[] = ((data.items as unknown[]) ?? []).map(
+          (item) => {
+            const i = item as Record<string, unknown>
+            return {
+              time: String(i.time ?? ''),
+              type: String(i.type ?? 'note') as TripDayItem['type'],
+              title: String(i.title ?? ''),
+              description: String(i.description ?? ''),
+              alternatives: [],
+              bookingUrl: i.bookingUrl ? String(i.bookingUrl) : undefined,
+            }
+          }
+        )
+        blocks.push({
+          type: 'day',
+          day: {
+            date: String(data.date ?? ''),
+            dayNumber: Number(data.dayNumber ?? 1),
+            title: String(data.title ?? 'Day'),
+            items,
+          },
+        })
+      } else {
+        const alternatives: Alternative[] = ((data.alternatives as unknown[]) ?? []).map(
+          (a) => {
+            const alt = a as Record<string, unknown>
+            return {
+              id: String(alt.id ?? crypto.randomUUID()),
+              name: String(alt.name ?? ''),
+              description: String(alt.description ?? ''),
+              price: String(alt.price ?? ''),
+              rating: typeof alt.rating === 'number' ? alt.rating : undefined,
+              bookingUrl: String(alt.bookingUrl ?? '#'),
+              imageUrl: alt.imageUrl ? String(alt.imageUrl) : undefined,
+              category: String(alt.category ?? 'accommodation') as Alternative['category'],
+            }
+          }
+        )
+        blocks.push({
+          type: 'alt',
+          itemRef: String(data.itemRef ?? ''),
+          alternatives,
+        })
+      }
+    } catch {
+      // 파싱 실패한 블록은 건너뜀
+    }
+
+    pos = nextPos
+  }
+
+  return { blocks, consumed: pos }
+}
+
+/**
+ * 누적된 blocks 로부터 TripPlan 상태를 구성한다.
+ * 이전 days 배열에 대안(alt)을 덮어씌우는 방식으로 incremental merge.
+ */
+export function applyBlocksToPlan(
+  prevDays: TripDay[],
+  blocks: ParsedBlock[],
+  params: TravelParams
+): { days: TripDay[]; bookingItems: BookingItem[] } {
+  // 깊은 복사 없이 Map 으로 관리
+  const dayMap = new Map<number, TripDay>(prevDays.map((d) => [d.dayNumber, { ...d, items: [...d.items] }]))
+
+  for (const block of blocks) {
+    if (block.type === 'day') {
+      dayMap.set(block.day.dayNumber, block.day)
+    } else {
+      // alt 블록: itemRef = "day1_accommodation" 패턴
+      const refParts = block.itemRef.split('_')
+      if (refParts.length >= 2) {
+        const dayNum = parseInt(refParts[0].replace('day', ''))
+        const itemType = refParts[1] as TripDayItem['type']
+        const day = dayMap.get(dayNum)
+        if (day) {
+          const target = day.items.find((i) => i.type === itemType)
+          if (target) target.alternatives = block.alternatives
+        }
+      }
+    }
+  }
+
+  const days = Array.from(dayMap.values()).sort((a, b) => a.dayNumber - b.dayNumber)
+
+  // bookingItems: alt 블록에서 숙소/액티비티 추출
+  const bookingItems: BookingItem[] = []
+  for (const block of blocks) {
+    if (block.type === 'alt' && block.alternatives.length > 0) {
+      const first = block.alternatives[0]
+      const itemType: BookingItem['type'] =
+        first.category === 'accommodation' ? 'accommodation' :
+        first.category === 'transport' ? 'transport' : 'activity'
+      bookingItems.push({
+        id: crypto.randomUUID(),
+        type: itemType,
+        name: first.name,
+        bookingUrl: first.bookingUrl,
+        guide: [
+          '아래 링크를 탭하세요',
+          '날짜·인원을 확인하세요',
+          '결제를 진행하세요',
+          '예약 확인 번호를 저장하세요',
+        ],
+        status: 'pending',
+        isCompleted: false,
+      })
+    }
+  }
+
+  return { days, bookingItems }
+}
+
 export function parseItineraryResponse(response: string): TripPlan {
   const id = crypto.randomUUID()
   const days: TripDay[] = []

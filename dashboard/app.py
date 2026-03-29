@@ -8,6 +8,8 @@ try:
 except ImportError:
     SUPABASE_AVAILABLE = False
 
+from streamlit_autorefresh import st_autorefresh
+
 st.set_page_config(
     page_title="AI Travel Agent — 개발 전광판",
     page_icon="✈️",
@@ -118,6 +120,12 @@ EVENT_ICONS = {"task_assigned":"📌","agent_status_change":"🔄","merge_reques
 # ─── Header ───
 st.markdown("# ✈️ AI Travel Agent — 개발 전광판")
 st.caption(f"마지막 업데이트: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
+# 자동 갱신 설정
+with st.sidebar:
+    st.markdown("### ⚙️ 설정")
+    refresh_interval = st.slider("자동 갱신 주기 (초)", 5, 60, 10) * 1000
+    st_autorefresh(interval=refresh_interval, key="dashboard_autorefresh")
 
 sb = get_supabase()
 if not sb:

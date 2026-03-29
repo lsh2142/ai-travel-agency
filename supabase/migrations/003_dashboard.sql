@@ -35,12 +35,12 @@ CREATE TABLE IF NOT EXISTS dispatch_logs (
 );
 
 -- Initial data
-INSERT INTO agent_statuses (agent_id, agent_name, role, status) VALUES
-  ('local_4ceb4a29', 'CEO 에이전트', '프로젝트 방향 감독 및 에이전트 조율', 'idle'),
-  ('local_62640cda', '디자이너 에이전트', 'UI/UX 전담 설계 및 구현', 'idle'),
-  ('local_abf1d986', '검증 에이전트', '타입체크, 테스트, API, 빌드 검증', 'idle'),
-  ('local_32e8d9bb', '형상관리 에이전트', '브랜치 머지 및 origin push 전담', 'idle'),
-  ('pm_agent', 'PM 에이전트', '작업 배분 및 에이전트 관리', 'working')
+INSERT INTO agent_statuses (agent_id, agent_name, role, status, current_task) VALUES
+  ('local_4ceb4a29', 'CEO 에이전트', '프로젝트 방향 감독 및 에이전트 조율', 'idle', NULL),
+  ('local_62640cda', '디자이너 에이전트', 'UI/UX 전담 설계 및 구현', 'idle', NULL),
+  ('local_abf1d986', '검증 에이전트', '타입체크, 테스트, API, 빌드 검증', 'idle', NULL),
+  ('local_32e8d9bb', '형상관리 에이전트', '브랜치 머지 및 origin push 전담', 'idle', NULL),
+  ('pm_agent', 'PM 에이전트', '작업 배분 및 에이전트 관리', 'working', '에이전트 정리 및 전광판 구축')
 ON CONFLICT (agent_id) DO NOTHING;
 
 INSERT INTO kanban_tasks (title, description, status, priority) VALUES

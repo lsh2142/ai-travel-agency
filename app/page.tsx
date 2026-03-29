@@ -832,7 +832,11 @@ export default function ChatPage() {
 
       {/* 모니터링 탭 */}
       <div className={`flex-1 overflow-y-auto bg-zinc-50 ${activeTab !== 'monitoring' ? 'hidden' : ''}`}>
-        <MonitoringTab onTabSwitch={setActiveTab} />
+        <MonitoringTab
+          onTabSwitch={setActiveTab}
+          suggestedAccommodations={suggestedAccommodations}
+          pendingDates={pendingDates}
+        />
       </div>
 
       {/* 모니터링 등록 모달 */}

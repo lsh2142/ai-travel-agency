@@ -3,9 +3,32 @@
 import { useState, useEffect, useCallback } from 'react';
 import { MONITOR_JOBS_KEY, type MonitorJob } from '@/lib/monitor/types';
 
-export default function MonitoringTab({ onTabSwitch }: { onTabSwitch: (tab: 'chat') => void }) {
+interface SuggestedAccommodation {
+  name: string;
+  url?: string;
+  checkIn?: string;
+  checkOut?: string;
+}
+
+interface MonitoringTabProps {
+  onTabSwitch: (tab: 'chat') => void;
+  suggestedAccommodations?: SuggestedAccommodation[];
+  pendingDates?: { depart: string; return: string };
+}
+
+interface RegisterForm {
+  accommodationName: string;
+  url: string;
+  checkIn: string;
+  checkOut: string;
+}
+
+const EMPTY_REGISTER_FORM: RegisterForm = { accommodationName: '', url: '', checkIn: '', checkOut: '' };
+
+export default function MonitoringTab({ onTabSwitch, suggestedAccommodations = [], pendingDates }: MonitoringTabProps) {
   const [jobs, setJobs] = useState<MonitorJob[]>([]);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [prefillForm, setPrefillForm] = useState<RegisterForm>(EMPTY_REGISTER_FORM);
 
   useEffect(() => {
     try {
@@ -27,24 +50,63 @@ export default function MonitoringTab({ onTabSwitch }: { onTabSwitch: (tab: 'cha
     setDeletingId(null);
   }, [jobs]);
 
+  // AI 추천 숙소 섹션 (suggestedAccommodations 있을 때 표시)
+  const SuggestedSection = suggestedAccommodations.length > 0 ? (
+    <div className="mb-5">
+      <p className="text-xs font-medium text-zinc-500 mb-2">💬 AI가 추천한 숙소</p>
+      <div className="space-y-2">
+        {suggestedAccommodations.map((acc, i) => (
+          <button
+            key={i}
+            onClick={() => setPrefillForm({
+              accommodationName: acc.name,
+              url: acc.url ?? '',
+              checkIn: acc.checkIn ?? pendingDates?.depart ?? '',
+              checkOut: acc.checkOut ?? pendingDates?.return ?? '',
+            })}
+            className={`w-full text-left p-3 rounded-xl border transition-colors ${
+              prefillForm.accommodationName === acc.name
+                ? 'bg-blue-50 border-blue-300'
+                : 'bg-white border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50'
+            }`}
+          >
+            <span className="text-sm font-medium text-zinc-800">🏨 {acc.name}</span>
+            {acc.url && (
+              <span className="block text-xs text-zinc-400 mt-0.5 truncate">{acc.url}</span>
+            )}
+          </button>
+        ))}
+      </div>
+      {prefillForm.accommodationName && (
+        <p className="text-xs text-blue-600 mt-2">
+          선택됨: <strong>{prefillForm.accommodationName}</strong> — 채팅 탭의 모니터링 등록 버튼을 눌러 완료하세요
+        </p>
+      )}
+    </div>
+  ) : null;
+
   if (jobs.length === 0) {
     return (
-      <div className="text-center mt-24">
-        <p className="text-4xl mb-4">🔔</p>
-        <p className="text-lg font-medium text-zinc-600 mb-2">등록된 모니터링이 없어요.</p>
-        <p className="text-sm text-zinc-400 mb-6">채팅에서 숙소를 찾아보세요!</p>
-        <button
-          onClick={() => onTabSwitch('chat')}
-          className="inline-flex items-center gap-2 rounded-xl bg-blue-500 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-600 transition-colors"
-        >
-          💬 채팅으로 이동
-        </button>
+      <div className="px-4 py-6 max-w-2xl mx-auto w-full">
+        {SuggestedSection}
+        <div className="text-center mt-16">
+          <p className="text-4xl mb-4">🔔</p>
+          <p className="text-lg font-medium text-zinc-600 mb-2">등록된 모니터링이 없어요.</p>
+          <p className="text-sm text-zinc-400 mb-6">채팅에서 숙소를 찾아보세요!</p>
+          <button
+            onClick={() => onTabSwitch('chat')}
+            className="inline-flex items-center gap-2 rounded-xl bg-blue-500 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-600 transition-colors"
+          >
+            💬 채팅으로 이동
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="px-4 py-6 max-w-2xl mx-auto w-full">
+      {SuggestedSection}
       <div className="space-y-3">
         {jobs.map((job) => (
           <div

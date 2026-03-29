@@ -1,14 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { BookingSite } from '@/types';
 import { MonitorScheduler } from '@/lib/monitor/scheduler';
+import { getServerSession } from '@/lib/auth/supabase-auth';
 
 export const runtime = 'nodejs';
 
 const scheduler = new MonitorScheduler();
 
 export async function GET(_request: NextRequest) {
+  const session = await getServerSession();
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   try {
-    const jobs = await scheduler.listJobs();
+    const jobs = await scheduler.listJobs(session.user.id);
     return NextResponse.json({ jobs });
   } catch (error) {
     console.error('Monitor GET error:', error);
@@ -17,8 +21,11 @@ export async function GET(_request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const session = await getServerSession();
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   try {
-    const body = await request.json() as { accommodationId: string; url: string; site: BookingSite; checkIn: string; checkOut: string; guests: number; accommodationName: string; userId: string };
+    const body = await request.json() as { accommodationId: string; url: string; site: BookingSite; checkIn: string; checkOut: string; guests: number; accommodationName: string; userId?: string };
     const required = ['accommodationId', 'url', 'site', 'checkIn', 'checkOut', 'guests'];
     for (const field of required) {
       if (!body[field as keyof typeof body]) return NextResponse.json({ error: `${field} is required` }, { status: 400 });
@@ -32,6 +39,9 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  const session = await getServerSession();
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   try {
     const { searchParams } = new URL(request.url);
     const jobId = searchParams.get('jobId');

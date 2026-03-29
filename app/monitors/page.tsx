@@ -2,11 +2,20 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { MONITOR_JOBS_KEY, type MonitorJob } from '@/app/page';
+import { supabase } from '@/lib/db/supabase';
 
 export default function MonitorsPage() {
+  const router = useRouter();
   const [jobs, setJobs] = useState<MonitorJob[]>([]);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const handleLogout = useCallback(async () => {
+    await supabase.auth.signOut();
+    await fetch('/api/auth/session', { method: 'DELETE' });
+    router.push('/auth');
+  }, [router]);
 
   useEffect(() => {
     try {
@@ -33,7 +42,15 @@ export default function MonitorsPage() {
       <header className="bg-white border-b shadow-sm">
         <div className="px-6 py-3 flex justify-between items-center">
           <h1 className="text-xl font-bold text-gray-800">AI 여행 플래닝 에이전트</h1>
-          <span className="text-sm text-zinc-400">{jobs.length}개 모니터링 중</span>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-zinc-400">{jobs.length}개 모니터링 중</span>
+            <button
+              onClick={handleLogout}
+              className="text-sm text-gray-400 hover:text-gray-700 border border-gray-200 rounded-lg px-3 py-1 transition-colors"
+            >
+              로그아웃
+            </button>
+          </div>
         </div>
         <nav className="flex px-6 gap-1 border-t border-gray-100">
           <Link

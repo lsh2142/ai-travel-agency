@@ -2,8 +2,10 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import type { ChatMessage } from '@/types';
+import { supabase } from '@/lib/db/supabase';
 
 export const MONITOR_JOBS_KEY = 'monitor_jobs';
 
@@ -54,6 +56,7 @@ function parseMessageContent(content: string): { text: string; options: string[]
 }
 
 export default function ChatPage() {
+  const router = useRouter();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -63,6 +66,12 @@ export default function ChatPage() {
   const [monitorSubmitting, setMonitorSubmitting] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isStreamingRef = useRef(false);
+
+  const handleLogout = useCallback(async () => {
+    await supabase.auth.signOut();
+    await fetch('/api/auth/session', { method: 'DELETE' });
+    router.push('/auth');
+  }, [router]);
 
   // localStorage에서 메시지 로드 (마운트 시 1회)
   useEffect(() => {
@@ -252,13 +261,21 @@ export default function ChatPage() {
       <header className="bg-white border-b shadow-sm">
         <div className="px-6 py-3 flex justify-between items-center">
           <h1 className="text-xl font-bold text-gray-800">AI 여행 플래닝 에이전트</h1>
-          <button
-            onClick={handleClearMessages}
-            disabled={isLoading || messages.length === 0}
-            className="text-sm text-gray-400 hover:text-red-500 disabled:opacity-30 border border-gray-200 rounded-lg px-3 py-1 transition-colors"
-          >
-            대화 초기화
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleClearMessages}
+              disabled={isLoading || messages.length === 0}
+              className="text-sm text-gray-400 hover:text-red-500 disabled:opacity-30 border border-gray-200 rounded-lg px-3 py-1 transition-colors"
+            >
+              대화 초기화
+            </button>
+            <button
+              onClick={handleLogout}
+              className="text-sm text-gray-400 hover:text-gray-700 border border-gray-200 rounded-lg px-3 py-1 transition-colors"
+            >
+              로그아웃
+            </button>
+          </div>
         </div>
         <nav className="flex px-6 gap-1 border-t border-gray-100">
           <span className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-blue-600 border-b-2 border-blue-500">

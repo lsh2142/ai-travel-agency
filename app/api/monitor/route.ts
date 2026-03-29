@@ -2,14 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db/adapter';
 import { monitorScheduler } from '@/lib/monitor';
 import type { MonitorJobData } from '@/lib/monitor';
+import { getServerSession } from '@/lib/auth/supabase-auth';
 import type { BookingSite } from '@/types';
 
 export const runtime = 'nodejs';
 
 export async function GET() {
+  const session = await getServerSession();
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   try {
     const [schedulerJobs, dbJobs] = await Promise.all([
-      monitorScheduler.listJobs(),
+      monitorScheduler.listJobs(session.user.id),
       getDb().getMonitorJobs(),
     ]);
     // DB jobs are authoritative; fall back to scheduler if DB is empty
@@ -22,6 +26,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const session = await getServerSession();
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   try {
     const body = await request.json() as {
       accommodationId: string;
@@ -31,7 +38,7 @@ export async function POST(request: NextRequest) {
       checkOut: string;
       guests: number;
       accommodationName: string;
-      userId: string;
+      userId?: string;
       telegramChatId?: string;
       intervalMs?: number;
     };
@@ -41,6 +48,7 @@ export async function POST(request: NextRequest) {
     }
 
     const jobId = crypto.randomUUID();
+    const userId = body.userId ?? session.user.id ?? '';
 
     const jobData: MonitorJobData = {
       jobId,
@@ -50,7 +58,7 @@ export async function POST(request: NextRequest) {
       checkOut: body.checkOut,
       guests: body.guests,
       accommodationName: body.accommodationName ?? body.accommodationId,
-      userId: body.userId ?? '',
+      userId,
       telegramChatId: body.telegramChatId,
     };
 
@@ -66,7 +74,7 @@ export async function POST(request: NextRequest) {
         checkOut: body.checkOut,
         guests: body.guests,
         accommodationName: body.accommodationName ?? '',
-        userId: body.userId ?? '',
+        userId,
         status: 'active',
         createdAt: new Date(),
         lastCheckedAt: null,
@@ -85,6 +93,9 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  const session = await getServerSession();
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   try {
     const jobId = request.nextUrl.searchParams.get('jobId');
     if (!jobId) return NextResponse.json({ error: 'jobId is required' }, { status: 400 });

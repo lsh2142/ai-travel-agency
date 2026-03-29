@@ -78,7 +78,8 @@ export class MonitorScheduler {
     return job.id ?? data.jobId;
   }
 
-  async listJobs(): Promise<Array<{ jobId: string; key: string; name: string; next: number | null }>> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async listJobs(_userId?: string): Promise<Array<{ jobId: string; key: string; name: string; next: number | null }>> {
     if (!this.isAvailable || !this.queue) {
       return [];
     }

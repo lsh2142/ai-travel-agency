@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { TravelPlanner } from '@/lib/ai/planner';
 import { getDb } from '@/lib/db/adapter';
+import { getServerSession } from '@/lib/auth/supabase-auth';
 import type { ChatMessage } from '@/types';
 
 export const runtime = 'nodejs';
@@ -15,6 +16,11 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const session = await getServerSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   let body: { messages: ChatMessage[]; userMessage: string; sessionId?: string };
   try {
     body = await request.json() as { messages: ChatMessage[]; userMessage: string; sessionId?: string };

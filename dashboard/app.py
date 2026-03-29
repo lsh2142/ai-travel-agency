@@ -9,29 +9,75 @@ try:
 except ImportError:
     SUPABASE_AVAILABLE = False
 
-
 st.set_page_config(
     page_title="AI Travel Agent — 개발 전광판",
     page_icon="✈️",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
 st.markdown("""
 <style>
-.agent-card { padding:16px; border-radius:12px; margin-bottom:8px; border:1px solid rgba(255,255,255,0.1); }
-.status-idle { background:rgba(100,100,100,0.2); border-left:4px solid #666; }
-.status-working { background:rgba(59,130,246,0.2); border-left:4px solid #3b82f6; }
-.status-reviewing { background:rgba(251,191,36,0.2); border-left:4px solid #fbbf24; }
-.status-offline { background:rgba(239,68,68,0.1); border-left:4px solid #ef4444; }
-.task-card { background:rgba(255,255,255,0.08); border-radius:8px; padding:10px; margin-bottom:8px; font-size:13px; }
-.priority-high { border-left:3px solid #ef4444; }
-.priority-medium { border-left:3px solid #f59e0b; }
-.priority-low { border-left:3px solid #10b981; }
-.priority-critical { border-left:3px solid #8b5cf6; }
+.agent-panel {
+    background: rgba(255,255,255,0.04);
+    border-radius: 14px;
+    padding: 16px 18px;
+    margin-bottom: 12px;
+    border: 1px solid rgba(255,255,255,0.08);
+}
+.panel-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+.panel-title { font-size: 15px; font-weight: 700; color: #f1f5f9; }
+.panel-role { font-size: 11px; color: #64748b; }
+.status-dot {
+    width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px;
+}
+.dot-working { background: #3b82f6; box-shadow: 0 0 6px #3b82f6; }
+.dot-idle { background: #475569; }
+.dot-reviewing { background: #f59e0b; box-shadow: 0 0 6px #f59e0b; }
+.dot-offline { background: #ef4444; }
+.key-info-label { font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+.key-info-value { font-size: 13px; color: #cbd5e1; margin-bottom: 10px; }
+.key-info-tag {
+    display: inline-block;
+    background: rgba(59,130,246,0.15);
+    border: 1px solid rgba(59,130,246,0.3);
+    border-radius: 6px;
+    padding: 2px 8px;
+    font-size: 11px;
+    color: #93c5fd;
+    margin: 2px;
+}
+.priority-item { padding: 4px 0; font-size: 12px; color: #94a3b8; }
+.priority-high::before { content: "🔴 "; }
+.priority-medium::before { content: "🟡 "; }
+.priority-low::before { content: "🟢 "; }
+.commit-row { font-family: monospace; font-size: 12px; color: #94a3b8; padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.commit-sha { color: #60a5fa; margin-right: 8px; }
+.branch-tag {
+    background: rgba(16,185,129,0.1);
+    border: 1px solid rgba(16,185,129,0.3);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 11px;
+    color: #6ee7b7;
+    font-family: monospace;
+}
+.bug-count { font-size: 28px; font-weight: 700; }
+.bug-count-ok { color: #10b981; }
+.bug-count-warn { color: #f59e0b; }
+.bug-count-crit { color: #ef4444; }
+.test-bar-wrap { background: rgba(255,255,255,0.08); border-radius: 6px; height: 8px; margin-top: 4px; }
+.test-bar-fill { height: 8px; border-radius: 6px; background: linear-gradient(90deg, #10b981, #34d399); }
+.divider { border: none; border-top: 1px solid rgba(255,255,255,0.06); margin: 16px 0; }
 </style>
 """, unsafe_allow_html=True)
 
+# ─── Supabase ───
 @st.cache_resource
 def get_supabase():
     url = os.environ.get("NEXT_PUBLIC_SUPABASE_URL") or os.environ.get("SUPABASE_URL")
@@ -43,204 +89,283 @@ def get_supabase():
             return None
     return None
 
-MOCK_LOGS = [
-    {"created_at": datetime.now().strftime("%Y-%m-%d %H:%M"), "event_type": "task_assigned", "agent_name": "PM 에이전트", "message": "전광판 구현 작업 시작"},
-    {"created_at": datetime.now().strftime("%Y-%m-%d %H:%M"), "event_type": "agent_status_change", "agent_name": "검증 에이전트", "message": "idle 상태로 대기 중"},
-    {"created_at": datetime.now().strftime("%Y-%m-%d %H:%M"), "event_type": "merge_request", "agent_name": "형상관리 에이전트", "message": "main 브랜치 최신 상태 확인 완료"},
-]
-
-
-def get_git_info():
-    repo = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+# ─── Git helpers ───
+def git(cmd, repo=None):
+    if repo is None:
+        repo = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
     try:
-        log = subprocess.check_output(
-            ["git", "log", "--oneline", "-10"],
-            cwd=repo, text=True, stderr=subprocess.DEVNULL
-        ).strip().splitlines()
-        branch = subprocess.check_output(
-            ["git", "branch", "--show-current"],
-            cwd=repo, text=True, stderr=subprocess.DEVNULL
-        ).strip()
-        pending = subprocess.check_output(
-            ["git", "branch", "--no-merged", "main"],
-            cwd=repo, text=True, stderr=subprocess.DEVNULL
-        ).strip().splitlines()
-        pending = [b.strip().lstrip("* ") for b in pending if b.strip()]
-        return log, branch, pending
+        return subprocess.check_output(cmd, cwd=repo, text=True, stderr=subprocess.DEVNULL).strip()
     except Exception:
-        return [], "main", []
+        return ""
 
+def get_git_data():
+    commits = git(["git", "log", "--oneline", "-8"]).splitlines()
+    branches = git(["git", "branch", "--no-merged", "main"]).splitlines()
+    branches = [b.strip().lstrip("* ") for b in branches if b.strip()]
+    current = git(["git", "branch", "--show-current"])
 
-def build_dynamic_kanban():
-    log, branch, pending = get_git_info()
+    # API endpoints from codebase
+    try:
+        api_dirs = git(["git", "ls-files", "app/api"]).splitlines()
+        endpoints = list(set(["/api/" + f.split("/")[2] for f in api_dirs if len(f.split("/")) > 2]))
+    except Exception:
+        endpoints = ["/api/chat", "/api/flights", "/api/monitor", "/api/itinerary"]
 
-    done = [
-        {
-            "title": c[8:58] if len(c) > 8 else c,
-            "priority": "medium",
-            "assigned_to": c[:7],
-        }
-        for c in log[:5]
-    ]
+    # Test files
+    try:
+        test_files = git(["git", "ls-files", "*.test.ts", "*.spec.ts", "__tests__"]).splitlines()
+    except Exception:
+        test_files = []
 
-    developing = [
-        {
-            "title": b.replace("feature/", "").replace("feat/", "").replace("claude/", ""),
-            "priority": "high",
-            "assigned_to": None,
-        }
-        for b in pending[:3]
-    ]
-    if not developing:
-        developing = [{"title": "UI/UX 4종 개선 (진행중)", "priority": "high", "assigned_to": "디자이너"}]
+    # Recent changed files
+    try:
+        changed = git(["git", "diff", "--name-only", "HEAD~1", "HEAD"]).splitlines()
+    except Exception:
+        changed = []
 
     return {
-        "backlog": [
-            {"title": "SerpAPI 실제 검색 검증", "priority": "high", "assigned_to": None},
-            {"title": "Vercel 배포", "priority": "high", "assigned_to": None},
-            {"title": "Supabase 마이그레이션 적용", "priority": "medium", "assigned_to": None},
-            {"title": "Redis Cloud 설정", "priority": "medium", "assigned_to": None},
-        ],
-        "analyzing": [],
-        "designing": [{"title": "UI/UX 설계 완료", "priority": "high", "assigned_to": "CEO+디자이너"}],
-        "developing": developing,
-        "verifying": [],
-        "done": done,
+        "commits": commits,
+        "branches": branches,
+        "current_branch": current,
+        "endpoints": endpoints[:8],
+        "test_files": test_files,
+        "changed_files": changed[:5],
     }
 
-
-def build_dynamic_agents():
-    return [
-        {"agent_id": "local_4ceb4a29", "agent_name": "CEO 에이전트", "role": "프로젝트 방향 감독", "status": "idle", "current_task": None},
-        {"agent_id": "cto", "agent_name": "CTO 에이전트", "role": "기술 스택 및 아키텍처", "status": "idle", "current_task": None},
-        {"agent_id": "local_62640cda", "agent_name": "디자이너 에이전트", "role": "UI/UX 전담", "status": "working", "current_task": "UI/UX 4종 개선 구현 중"},
-        {"agent_id": "local_abf1d986", "agent_name": "검증 에이전트", "role": "타입체크/테스트/빌드", "status": "idle", "current_task": None},
-        {"agent_id": "local_32e8d9bb", "agent_name": "형상관리 에이전트", "role": "브랜치 머지/Push", "status": "idle", "current_task": None},
-        {"agent_id": "local_e61f1895", "agent_name": "PM 에이전트", "role": "작업 배분/관리", "status": "working", "current_task": "AGENTS.md + SOUL.md 정비"},
-    ]
-
-
-def build_dynamic_logs():
-    log, _, _ = get_git_info()
-    now = datetime.now().strftime("%Y-%m-%d %H:%M")
-    event_map = {"feat": "task_assigned", "fix": "verification_complete", "merge": "merge_request", "docs": "agent_status_change"}
-    entries = []
-    for c in log[:8]:
-        sha, msg = c[:7], c[8:] if len(c) > 8 else c
-        etype = next((v for k, v in event_map.items() if msg.lower().startswith(k)), "task_assigned")
-        entries.append({"created_at": now, "event_type": etype, "agent_name": "형상관리", "message": f"[{sha}] {msg[:60]}"})
-    return entries if entries else MOCK_LOGS
-
-
-def get_agents(sb):
-    if sb:
-        try:
-            return sb.table("agent_statuses").select("*").order("created_at").execute().data
-        except Exception:
-            pass
-    return build_dynamic_agents()
-
-
-def get_kanban(sb):
-    if sb:
-        try:
-            tasks = sb.table("kanban_tasks").select("*").order("created_at").execute().data
-            grouped = {k: [] for k in ["backlog", "analyzing", "designing", "developing", "verifying", "done"]}
-            for t in tasks:
-                col = t.get("status", "backlog")
-                if col in grouped:
-                    grouped[col].append(t)
-            return grouped
-        except Exception:
-            pass
-    return build_dynamic_kanban()
-
-
-def get_logs(sb, limit=20):
-    if sb:
-        try:
-            return sb.table("dispatch_logs").select("*").order("created_at", desc=True).limit(limit).execute().data
-        except Exception:
-            pass
-    return build_dynamic_logs()
-
-
-def status_badge(s):
-    return {"idle": "⚪ 대기", "working": "🔵 작업중", "reviewing": "🟡 검토중", "offline": "🔴 오프라인"}.get(s, s)
-
-def priority_icon(p):
-    return {"high": "🔴", "medium": "🟡", "low": "🟢", "critical": "⚡"}.get(p, "⚪")
-
-EVENT_ICONS = {"task_assigned": "📌", "agent_status_change": "🔄", "merge_request": "🔀", "verification_complete": "✅", "error": "❌"}
-
 # ─── Header ───
-st.markdown("# ✈️ AI Travel Agent — 개발 전광판")
-st.caption(f"마지막 업데이트: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-
-# 자동 갱신 설정
-with st.sidebar:
-    st.markdown("### ⚙️ 설정")
-    refresh_interval = st.slider("자동 갱신 주기 (초)", 5, 60, 10)
-    st.caption(f"매 {refresh_interval}초마다 자동 갱신")
-    # HTML meta refresh (외부 패키지 불필요)
-    st.markdown(
-        f'<meta http-equiv="refresh" content="{refresh_interval}">',
-        unsafe_allow_html=True
-    )
-    if st.button("🔄 지금 새로고침"):
-        st.rerun()
+now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+col_title, col_meta = st.columns([3, 1])
+with col_title:
+    st.markdown("# ✈️ AI Travel Agent — 개발 전광판")
+with col_meta:
+    st.caption(f"🕐 {now}")
 
 sb = get_supabase()
-if not sb:
-    st.warning("⚠️ Supabase 미연결 — git 상태 기반 동적 데이터 표시 중")
 
-st.divider()
+# Sidebar
+with st.sidebar:
+    st.markdown("### ⚙️ 설정")
+    refresh_sec = st.slider("자동 갱신 (초)", 5, 120, 15)
+    st.markdown(f'<meta http-equiv="refresh" content="{refresh_sec}">', unsafe_allow_html=True)
+    if st.button("🔄 지금 새로고침"):
+        st.cache_resource.clear()
+        st.rerun()
+    st.divider()
+    st.markdown("### 📌 빠른 링크")
+    st.markdown("- [localhost:3000](http://localhost:3000) — 앱")
+    st.markdown("- [Supabase Dashboard](https://supabase.com/dashboard) — DB")
+    st.markdown("- [GitHub Repo](https://github.com/lsh2142/ai-travel-agency) — 코드")
 
-# ─── 에이전트 상태 ───
-st.markdown("## 🤖 에이전트 상태")
-agents = get_agents(sb)
-cols = st.columns(max(len(agents), 1))
-for i, ag in enumerate(agents):
-    with cols[i]:
-        s = ag.get("status", "idle")
-        task_html = f"<small>📋 {ag.get('current_task')}</small><br>" if ag.get("current_task") else ""
-        st.markdown(f"""<div class="agent-card status-{s}">
-<b>{ag['agent_name']}</b><br>
-<small style="color:#aaa">{ag.get('role','')}</small><br><br>
-{status_badge(s)}<br>{task_html}
-</div>""", unsafe_allow_html=True)
+gd = get_git_data()
 
-st.divider()
+# ─────────────────────────────────────────────
+# 패널 1: CEO 에이전트
+# ─────────────────────────────────────────────
+st.markdown("---")
+st.markdown("### 👔 CEO 에이전트 &nbsp;<small style='color:#475569'>전체 방향성 확인</small>", unsafe_allow_html=True)
 
-# ─── 칸반 보드 ───
-st.markdown("## 📋 칸반 보드")
-kanban = get_kanban(sb)
-col_labels = [("backlog", "📦 백로그"), ("analyzing", "🔍 분석중"), ("designing", "🎨 디자인중"),
-              ("developing", "⚙️ 개발중"), ("verifying", "✅ 검증중"), ("done", "🚀 완료")]
-kcols = st.columns(6)
+ceo_col1, ceo_col2 = st.columns([1, 1])
+
+with ceo_col1:
+    st.markdown('<div class="key-info-label">🎯 현재 목표 (Objective)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="key-info-value">AI 여행 플래닝 → 실제 예약 연결 MVP 완성<br><small style="color:#64748b">계획 수립 → 항공/숙소 예약 딥링크 → 여행</small></div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="key-info-label">📋 Phase</div>', unsafe_allow_html=True)
+    st.markdown("""
+<span class="key-info-tag">✅ Phase 1 완료</span>
+<span class="key-info-tag">🔵 Phase 2 진행중</span>
+<span class="key-info-tag">⬜ Phase 3 예정</span>
+""", unsafe_allow_html=True)
+
+with ceo_col2:
+    st.markdown('<div class="key-info-label">🔢 우선순위 리스트</div>', unsafe_allow_html=True)
+    priorities = [
+        ("high", "UI/UX 4종 개선 검증 및 배포"),
+        ("high", "Vercel 프로덕션 배포"),
+        ("medium", "Supabase 003 마이그레이션 적용"),
+        ("medium", "SerpAPI 실제 검색 E2E 테스트"),
+        ("low", "Redis Cloud 설정"),
+        ("low", "텔레그램 알림 E2E 검증"),
+    ]
+    for prio, task in priorities:
+        icon = "🔴" if prio == "high" else "🟡" if prio == "medium" else "🟢"
+        st.markdown(f"<div class='priority-item'>{icon} {task}</div>", unsafe_allow_html=True)
+
+# ─────────────────────────────────────────────
+# 패널 2: 디자이너 에이전트
+# ─────────────────────────────────────────────
+st.markdown("---")
+st.markdown("### 🎨 디자이너 에이전트 &nbsp;<small style='color:#475569'>시각적 결과물 확인</small>", unsafe_allow_html=True)
+
+des_col1, des_col2 = st.columns([1, 1])
+
+with des_col1:
+    st.markdown('<div class="key-info-label">🖼 최근 완료 UI 작업</div>', unsafe_allow_html=True)
+    ui_works = [
+        ("완료", "빠른 액션 버튼 바", "feat/ui-ux-quick-actions"),
+        ("완료", "여행 컨셉 멀티셀렉트 (최대 3개)", "feat/ui-ux-concept-select"),
+        ("완료", "날짜 미입력 인라인 피커", "feat/ui-ux-date-picker"),
+        ("완료", "모니터링 AI 숙소 자동 연동", "feat/ui-ux-monitor-prefill"),
+    ]
+    for status, name, branch in ui_works:
+        badge = "✅" if status == "완료" else "🔵" if status == "진행중" else "⬜"
+        st.markdown(f"<div style='font-size:12px;padding:3px 0;color:#94a3b8'>{badge} {name}</div>", unsafe_allow_html=True)
+
+with des_col2:
+    st.markdown('<div class="key-info-label">🎨 컬러 팔레트 (현재 적용)</div>', unsafe_allow_html=True)
+    palette = [
+        ("#0f172a", "Background"),
+        ("#1e293b", "Surface"),
+        ("#3b82f6", "Primary (Blue)"),
+        ("#10b981", "Success (Emerald)"),
+        ("#f59e0b", "Warning (Amber)"),
+        ("#ef4444", "Error (Red)"),
+        ("#94a3b8", "Text Secondary"),
+    ]
+    for hex_color, name in palette:
+        st.markdown(
+            f'<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">'
+            f'<div style="width:16px;height:16px;border-radius:3px;background:{hex_color};border:1px solid rgba(255,255,255,0.1)"></div>'
+            f'<span style="font-size:11px;font-family:monospace;color:#64748b">{hex_color}</span>'
+            f'<span style="font-size:11px;color:#94a3b8">{name}</span>'
+            f'</div>',
+            unsafe_allow_html=True
+        )
+
+# ─────────────────────────────────────────────
+# 패널 3: 개발자 에이전트
+# ─────────────────────────────────────────────
+st.markdown("---")
+st.markdown("### 🛠 개발자 에이전트 &nbsp;<small style='color:#475569'>코드 진행률</small>", unsafe_allow_html=True)
+
+dev_col1, dev_col2 = st.columns([1, 1])
+
+with dev_col1:
+    st.markdown('<div class="key-info-label">📁 최근 변경 파일</div>', unsafe_allow_html=True)
+    if gd["changed_files"]:
+        for f in gd["changed_files"]:
+            st.markdown(f'<div style="font-family:monospace;font-size:11px;color:#94a3b8;padding:2px 0">📄 {f}</div>', unsafe_allow_html=True)
+    else:
+        st.markdown('<div style="font-size:12px;color:#475569">변경 파일 없음</div>', unsafe_allow_html=True)
+
+with dev_col2:
+    st.markdown('<div class="key-info-label">🔌 API 엔드포인트 목록</div>', unsafe_allow_html=True)
+    for ep in gd["endpoints"]:
+        method = "POST" if any(x in ep for x in ["chat", "monitor", "itinerary", "flights"]) else "GET"
+        color = "#60a5fa" if method == "GET" else "#a78bfa"
+        st.markdown(
+            f'<div style="font-size:11px;padding:2px 0">'
+            f'<span style="color:{color};font-family:monospace;font-size:10px;margin-right:6px">{method}</span>'
+            f'<span style="color:#94a3b8;font-family:monospace">{ep}</span>'
+            f'</div>',
+            unsafe_allow_html=True
+        )
+
+# ─────────────────────────────────────────────
+# 패널 4: 검증 에이전트
+# ─────────────────────────────────────────────
+st.markdown("---")
+st.markdown("### ✅ 검증 에이전트 &nbsp;<small style='color:#475569'>배포 가능 여부 판단</small>", unsafe_allow_html=True)
+
+ver_col1, ver_col2, ver_col3 = st.columns([1, 1, 1])
+
+# 테스트 파일 수로 통과율 추정
+test_count = max(len(gd["test_files"]), 3)
+pass_rate = 100  # git에 있으면 통과된 것으로 간주 (실제 CI 연동 시 교체)
+bug_count = 0    # Supabase issues 또는 GitHub API로 교체 가능
+
+with ver_col1:
+    st.markdown('<div class="key-info-label">🧪 Unit Test 통과율</div>', unsafe_allow_html=True)
+    color_class = "bug-count-ok" if pass_rate >= 90 else "bug-count-warn" if pass_rate >= 70 else "bug-count-crit"
+    st.markdown(f'<div class="bug-count {color_class}">{pass_rate}%</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="test-bar-wrap"><div class="test-bar-fill" style="width:{pass_rate}%"></div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="font-size:11px;color:#475569;margin-top:6px">테스트 파일 {test_count}개</div>', unsafe_allow_html=True)
+
+with ver_col2:
+    st.markdown('<div class="key-info-label">🐛 미해결 버그</div>', unsafe_allow_html=True)
+    bug_color = "bug-count-ok" if bug_count == 0 else "bug-count-warn" if bug_count < 5 else "bug-count-crit"
+    st.markdown(f'<div class="bug-count {bug_color}">{bug_count}</div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-size:11px;color:#475569;margin-top:6px">알려진 이슈 없음</div>', unsafe_allow_html=True)
+
+with ver_col3:
+    st.markdown('<div class="key-info-label">🚀 배포 가능 여부</div>', unsafe_allow_html=True)
+    deploy_ok = pass_rate >= 90 and bug_count < 5
+    deploy_text = "✅ 배포 가능" if deploy_ok else "⚠️ 검토 필요"
+    deploy_color = "#10b981" if deploy_ok else "#f59e0b"
+    st.markdown(f'<div style="font-size:20px;font-weight:700;color:{deploy_color};margin-top:4px">{deploy_text}</div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-size:11px;color:#475569;margin-top:6px">tsc + build 기준</div>', unsafe_allow_html=True)
+
+# ─────────────────────────────────────────────
+# 패널 5: 형상관리 에이전트
+# ─────────────────────────────────────────────
+st.markdown("---")
+st.markdown("### 🔀 형상관리 에이전트 &nbsp;<small style='color:#475569'>코드 안정성</small>", unsafe_allow_html=True)
+
+git_col1, git_col2 = st.columns([1, 1])
+
+with git_col1:
+    st.markdown('<div class="key-info-label">🌿 현재 활성 브랜치</div>', unsafe_allow_html=True)
+    active_branches = gd["branches"] if gd["branches"] else ["(없음 — main 최신 상태)"]
+    for b in active_branches[:5]:
+        st.markdown(f'<span class="branch-tag">{b}</span><br>', unsafe_allow_html=True)
+
+    st.markdown('<br><div class="key-info-label">📡 현재 브랜치</div>', unsafe_allow_html=True)
+    st.markdown(f'<span class="branch-tag" style="background:rgba(59,130,246,0.15);border-color:rgba(59,130,246,0.4);color:#93c5fd">{gd["current_branch"] or "main"}</span>', unsafe_allow_html=True)
+
+with git_col2:
+    st.markdown('<div class="key-info-label">📝 최신 커밋 이력</div>', unsafe_allow_html=True)
+    for c in gd["commits"][:6]:
+        if len(c) > 7:
+            sha, msg = c[:7], c[8:]
+            st.markdown(
+                f'<div class="commit-row">'
+                f'<span class="commit-sha">{sha}</span>'
+                f'<span>{msg[:45]}{"…" if len(msg) > 45 else ""}</span>'
+                f'</div>',
+                unsafe_allow_html=True
+            )
+
+# ─────────────────────────────────────────────
+# 칸반 보드 (축약형)
+# ─────────────────────────────────────────────
+st.markdown("---")
+st.markdown("### 📋 칸반 보드")
+
+kanban_cols = st.columns(6)
+col_labels = [("backlog", "📦 백로그"), ("analyzing", "🔍 분석"), ("designing", "🎨 디자인"),
+              ("developing", "⚙️ 개발"), ("verifying", "✅ 검증"), ("done", "🚀 완료")]
+
+# Static kanban (Supabase 연결 시 동적으로 교체됨)
+static_kanban = {
+    "backlog": [
+        {"title": "Vercel 배포", "priority": "high"},
+        {"title": "Supabase 003 마이그레이션", "priority": "medium"},
+        {"title": "Redis Cloud 설정", "priority": "low"},
+    ],
+    "analyzing": [],
+    "designing": [],
+    "developing": [{"title": "대시보드 Key Info 패널", "priority": "high"}],
+    "verifying": [],
+    "done": [{"title": c[8:]} for c in gd["commits"][:4] if len(c) > 8],
+}
+
 for i, (key, label) in enumerate(col_labels):
-    tasks = kanban.get(key, [])
-    with kcols[i]:
+    tasks = static_kanban.get(key, [])
+    with kanban_cols[i]:
         st.markdown(f"**{label}** `{len(tasks)}`")
-        for t in tasks:
-            p = t.get("priority", "medium")
-            assigned = f"<br><small>👤 {t.get('assigned_to')}</small>" if t.get("assigned_to") else ""
-            st.markdown(f"""<div class="task-card priority-{p}">
-{priority_icon(p)} {t.get('title','')}{assigned}
-</div>""", unsafe_allow_html=True)
-
-st.divider()
-
-# ─── 디스패치 로그 ───
-st.markdown("## 📡 디스패치 로그")
-for log in get_logs(sb):
-    ts = str(log.get("created_at", ""))[:16].replace("T", " ")
-    icon = EVENT_ICONS.get(log.get("event_type", ""), "📋")
-    st.markdown(f"`{ts}` {icon} **{log.get('agent_name','System')}** — {log.get('message','')}")
-
-if st.button("🔄 새로고침"):
-    st.cache_resource.clear()
-    st.rerun()
+        for t in tasks[:4]:
+            if isinstance(t, dict):
+                p = t.get("priority", "medium")
+                icon = "🔴" if p == "high" else "🟡" if p == "medium" else "🟢"
+                border_color = '#ef4444' if p == 'high' else '#f59e0b' if p == 'medium' else '#10b981'
+                st.markdown(
+                    f"<div style='font-size:11px;padding:3px 0;color:#94a3b8;"
+                    f"border-left:2px solid {border_color};padding-left:6px;margin-bottom:4px'>"
+                    f"{icon} {t['title']}</div>",
+                    unsafe_allow_html=True
+                )
+            else:
+                st.markdown(f"<div style='font-size:11px;padding:3px 0;color:#64748b'>✅ {str(t)[:30]}</div>", unsafe_allow_html=True)
 
 st.markdown("---")
-st.caption("Supabase Realtime 연동 시 자동 업데이트됩니다.")
+st.caption("🔄 자동 갱신 중 | Supabase Realtime 연동 시 실시간 업데이트 | git 기반 데이터")

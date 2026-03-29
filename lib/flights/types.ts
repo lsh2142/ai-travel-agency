@@ -1,10 +1,10 @@
 export interface FlightSearchParams {
-  origin: string;        // IATA 코드 (예: "ICN") 또는 도시명
-  destination: string;   // IATA 코드 (예: "NRT") 또는 도시명
-  departureDate: string; // YYYY-MM-DD
-  returnDate?: string;   // YYYY-MM-DD (왕복)
-  passengers?: number;   // 기본 1
-  cabin?: 'economy' | 'business' | 'first'; // 기본 economy
+  origin: string;
+  destination: string;
+  departureDate: string;
+  returnDate?: string;
+  passengers?: number;
+  cabin?: 'economy' | 'business' | 'first';
 }
 
 export interface FlightResult {

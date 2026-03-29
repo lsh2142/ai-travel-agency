@@ -152,6 +152,14 @@ function FlightCard({
 export default function ChatPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<ActiveTab>('chat');
+
+  // 로그인 여부 확인 후 미인증 시 /auth로 리다이렉트
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) router.push('/auth');
+    });
+  }, [router]);
+
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     if (typeof window !== 'undefined') {
       try {

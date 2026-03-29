@@ -1,24 +1,49 @@
-create table if not exists chat_sessions (
-  id text primary key,
-  messages jsonb not null default '[]',
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
+-- Chat Sessions
+CREATE TABLE IF NOT EXISTS public.chat_sessions (
+  id TEXT PRIMARY KEY,
+  messages JSONB NOT NULL DEFAULT '[]',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-create table if not exists monitor_jobs (
-  id text primary key,
-  hotel_url text not null,
-  site text not null,
-  check_in text not null,
-  check_out text not null,
-  guests integer not null default 2,
-  telegram_chat_id text not null,
-  status text not null default 'active',
-  created_at timestamptz default now()
+-- Travel Plans
+CREATE TABLE IF NOT EXISTS public.travel_plans (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id TEXT NOT NULL,
+  destination TEXT NOT NULL,
+  check_in TEXT NOT NULL,
+  check_out TEXT NOT NULL,
+  guests INTEGER NOT NULL DEFAULT 1,
+  plan_data JSONB NOT NULL DEFAULT '{}',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-alter table chat_sessions enable row level security;
-alter table monitor_jobs enable row level security;
+-- Monitor Jobs
+CREATE TABLE IF NOT EXISTS public.monitor_jobs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id TEXT NOT NULL,
+  accommodation_id TEXT NOT NULL,
+  url TEXT NOT NULL,
+  site TEXT NOT NULL,
+  check_in TEXT NOT NULL,
+  check_out TEXT NOT NULL,
+  guests INTEGER NOT NULL DEFAULT 1,
+  status TEXT NOT NULL DEFAULT 'active',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_checked_at TIMESTAMPTZ
+);
 
-create policy "anon read chat_sessions" on chat_sessions for all using (true) with check (true);
-create policy "anon read monitor_jobs" on monitor_jobs for all using (true) with check (true);
+-- Indexes
+CREATE INDEX IF NOT EXISTS travel_plans_user_id_idx ON public.travel_plans(user_id);
+CREATE INDEX IF NOT EXISTS monitor_jobs_user_id_idx ON public.monitor_jobs(user_id);
+CREATE INDEX IF NOT EXISTS monitor_jobs_status_idx ON public.monitor_jobs(status);
+
+-- Enable Row Level Security
+ALTER TABLE public.chat_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.travel_plans ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.monitor_jobs ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies (anon can read/write for now — tighten when auth is added)
+CREATE POLICY "anon_all_chat_sessions" ON public.chat_sessions FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "anon_all_travel_plans" ON public.travel_plans FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "anon_all_monitor_jobs" ON public.monitor_jobs FOR ALL TO anon USING (true) WITH CHECK (true);

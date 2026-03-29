@@ -42,6 +42,28 @@ const PROGRESS_STEPS = [
 
 const STORAGE_KEY = 'travel_chat_messages';
 
+const QUICK_ACTIONS = [
+  { icon: '✈️', label: '항공편 더 보기', msg: '항공편 옵션을 더 자세히 보여줘' },
+  { icon: '🏨', label: '숙소 추천', msg: '숙소를 더 자세히 추천해줘' },
+  { icon: '📅', label: '상세 일정', msg: '일정을 더 자세하게 만들어줘' },
+  { icon: '💡', label: '여행 팁', msg: '이 여행에서 유용한 팁을 알려줘' },
+  { icon: '💰', label: '예산 정리', msg: '예상 여행 예산을 정리해줘' },
+] as const;
+
+const CONCEPTS = [
+  { emoji: '🏯', label: '문화탐방' },
+  { emoji: '🍜', label: '미식여행' },
+  { emoji: '♨️', label: '온천·힐링' },
+  { emoji: '🏄', label: '액티비티' },
+  { emoji: '🛍', label: '쇼핑' },
+  { emoji: '🌿', label: '자연·힐링' },
+  { emoji: '👫', label: '커플여행' },
+  { emoji: '👨‍👩‍👧', label: '가족여행' },
+  { emoji: '🧳', label: '혼자여행' },
+  { emoji: '💰', label: '알뜰여행' },
+  { emoji: '💎', label: '프리미엄' },
+];
+
 type ActiveTab = 'chat' | 'itinerary' | 'monitoring';
 
 function parseMessageContent(content: string): { text: string; options: string[]; flightParams: FlightSearchParams | null } {
@@ -182,6 +204,10 @@ export default function ChatPage() {
   const [flightLoading, setFlightLoading] = useState<Record<number, boolean>>({});
   const [addedFlights, setAddedFlights] = useState<Set<string>>(new Set());
   const [pendingCount, setPendingCount] = useState(0);
+  const [selectedConcepts, setSelectedConcepts] = useState<string[]>([]);
+  const [pendingDates, setPendingDates] = useState<{ depart: string; return: string }>({ depart: '', return: '' });
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [suggestedAccommodations, setSuggestedAccommodations] = useState<Array<{ name: string; url?: string; checkIn?: string; checkOut?: string }>>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isStreamingRef = useRef(false);
 
@@ -228,6 +254,14 @@ export default function ChatPage() {
     try {
       localStorage.removeItem(STORAGE_KEY);
     } catch { /* 무시 */ }
+  }, []);
+
+  const toggleConcept = useCallback((label: string) => {
+    setSelectedConcepts((prev) => {
+      if (prev.includes(label)) return prev.filter((c) => c !== label);
+      if (prev.length >= 3) return prev;
+      return [...prev, label];
+    });
   }, []);
 
   const sendMessage = useCallback(async (text: string) => {
@@ -316,6 +350,41 @@ export default function ChatPage() {
       .finally(() => {
         setFlightLoading((prev) => ({ ...prev, [lastIdx]: false }));
       });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading]);
+
+  // AI 응답 완료 후 날짜 필요 여부 감지 + 숙소명 추출
+  useEffect(() => {
+    if (isLoading) return;
+    const lastMsg = messages[messages.length - 1];
+    if (!lastMsg || lastMsg.role !== 'assistant' || !lastMsg.content) return;
+    const content = lastMsg.content;
+
+    // 날짜 피커 트리거
+    const needsDate =
+      (content.includes('[FLIGHTS_SEARCH:') && !/departureDate/.test(content)) ||
+      /날짜.{0,10}(알려주|입력해|있으시면|알아야|필요)/.test(content);
+    if (needsDate) setShowDatePicker(true);
+
+    // 숙소명 추출: [ACCOMMODATION:{...}] 마크업 우선, 없으면 텍스트 패턴
+    const extracted: Array<{ name: string; url?: string }> = [];
+    const markupMatches = content.match(/\[ACCOMMODATION:\s*(\{[^}]+\})\]/g) ?? [];
+    for (const m of markupMatches) {
+      try {
+        const json = m.replace(/^\[ACCOMMODATION:\s*/, '').replace(/\]$/, '');
+        extracted.push(JSON.parse(json) as { name: string; url?: string });
+      } catch { /* 무시 */ }
+    }
+    if (extracted.length === 0) {
+      const textMatches = content.match(/(?:호텔|료칸|旅館|inn|hotel|resort)[^\n,。！!?]{1,25}/gi) ?? [];
+      for (const m of textMatches) {
+        const name = m.trim();
+        if (name.length >= 4) extracted.push({ name });
+      }
+    }
+    if (extracted.length > 0) {
+      setSuggestedAccommodations(extracted.slice(0, 3));
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoading]);
 
@@ -483,27 +552,48 @@ export default function ChatPage() {
       <div className={`flex flex-col flex-1 overflow-hidden ${activeTab !== 'chat' ? 'hidden' : ''}`}>
         <main className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
           {messages.length === 0 && (
-            <div className="text-center text-gray-400 mt-20">
-              <p className="text-2xl mb-2">✈️</p>
-              <p className="text-lg font-medium text-gray-500">어디로 여행을 떠나고 싶으신가요?</p>
-              <p className="text-sm mt-2 mb-6">예: "다음 달 3박 4일로 교토 여행 계획 짜줘. 2명이고 예산은 50만원이야"</p>
-              <div className="grid grid-cols-2 gap-3 max-w-sm mx-auto">
-                {[
-                  '🏯 교토 3박 4일 추천해줘',
-                  '🗼 도쿄 가족여행 코스 짜줘',
-                  '♨️ 홋카이도 온천 료칸 찾아줘',
-                  '🍜 오사카 맛집 투어 2박 3일',
-                ].map((prompt) => (
-                  <button
-                    key={prompt}
-                    onClick={() => sendMessage(prompt)}
-                    disabled={isLoading}
-                    className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700 hover:border-blue-300 hover:bg-blue-50 transition-colors shadow-sm disabled:opacity-50"
-                  >
-                    {prompt}
-                  </button>
-                ))}
+            <div className="text-center mt-16 px-4">
+              <p className="text-3xl mb-3">✈️</p>
+              <p className="text-lg font-medium text-gray-700">어떤 여행을 원하시나요?</p>
+              <p className="text-sm text-gray-400 mt-1 mb-6">여행 컨셉을 선택하면 맞춤 계획을 세워드려요 (최대 3개)</p>
+              <div className="flex flex-wrap justify-center gap-2 max-w-md mx-auto mb-6">
+                {CONCEPTS.map(({ emoji, label }) => {
+                  const isSelected = selectedConcepts.includes(label);
+                  const isDisabled = !isSelected && selectedConcepts.length >= 3;
+                  return (
+                    <button
+                      key={label}
+                      onClick={() => toggleConcept(label)}
+                      disabled={isDisabled}
+                      className={`flex items-center gap-1.5 px-3 py-2 rounded-full border text-sm transition-colors ${
+                        isSelected
+                          ? 'bg-blue-600 border-blue-500 text-white'
+                          : isDisabled
+                          ? 'bg-zinc-100 border-zinc-200 text-zinc-400 opacity-40 cursor-not-allowed'
+                          : 'bg-white border-zinc-200 text-zinc-600 hover:border-blue-300 hover:bg-blue-50'
+                      }`}
+                    >
+                      <span>{emoji}</span>
+                      <span>{label}</span>
+                    </button>
+                  );
+                })}
               </div>
+              {selectedConcepts.length > 0 && (
+                <button
+                  onClick={() => {
+                    sendMessage(`${selectedConcepts.join(', ')} 스타일로 여행 계획해줘`);
+                    setSelectedConcepts([]);
+                  }}
+                  disabled={isLoading}
+                  className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 text-sm font-medium transition-colors disabled:opacity-50 shadow-sm"
+                >
+                  이 컨셉으로 여행 시작 →
+                </button>
+              )}
+              {selectedConcepts.length === 0 && (
+                <p className="text-xs text-zinc-400">또는 아래 입력창에 직접 목적지를 입력하세요</p>
+              )}
             </div>
           )}
 
@@ -566,6 +656,43 @@ export default function ChatPage() {
                     >
                       {text}
                     </ReactMarkdown>
+                    {showDatePicker && idx === messages.length - 1 && (
+                      <div className="mt-3 p-4 rounded-xl bg-zinc-50 border border-zinc-200">
+                        <p className="text-xs text-zinc-500 mb-3">✈️ 출발일과 귀국일을 선택하면 항공편을 검색할게요</p>
+                        <div className="flex gap-3 flex-wrap items-end">
+                          <div className="flex-1 min-w-[130px]">
+                            <label className="text-xs text-zinc-500 mb-1 block">출발일</label>
+                            <input
+                              type="date"
+                              value={pendingDates.depart}
+                              onChange={(e) => setPendingDates((p) => ({ ...p, depart: e.target.value }))}
+                              className="w-full bg-white border border-zinc-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div className="flex-1 min-w-[130px]">
+                            <label className="text-xs text-zinc-500 mb-1 block">귀국일</label>
+                            <input
+                              type="date"
+                              value={pendingDates.return}
+                              onChange={(e) => setPendingDates((p) => ({ ...p, return: e.target.value }))}
+                              className="w-full bg-white border border-zinc-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                          <button
+                            onClick={() => {
+                              if (pendingDates.depart) {
+                                sendMessage(`출발일 ${pendingDates.depart}, 귀국일 ${pendingDates.return || '미정'}으로 항공편과 숙소를 찾아줘`);
+                                setShowDatePicker(false);
+                              }
+                            }}
+                            disabled={!pendingDates.depart || isLoading}
+                            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-zinc-200 disabled:text-zinc-400 text-white rounded-lg text-sm transition-colors"
+                          >
+                            검색하기
+                          </button>
+                        </div>
+                      </div>
+                    )}
                     <div className="mt-3 pt-3 border-t border-gray-100">
                       <button
                         onClick={openMonitorModal}
@@ -656,7 +783,23 @@ export default function ChatPage() {
         </main>
 
         <footer className="bg-white border-t px-4 py-4">
-          <div className="flex gap-3 max-w-4xl mx-auto">
+          <div className="max-w-4xl mx-auto flex flex-col gap-2">
+          {messages.length > 0 && (
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+              {QUICK_ACTIONS.map(({ icon, label, msg }) => (
+                <button
+                  key={label}
+                  onClick={() => sendMessage(msg)}
+                  disabled={isLoading}
+                  className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-100 hover:bg-zinc-200 text-sm text-zinc-600 hover:text-zinc-900 transition-colors border border-zinc-200 hover:border-zinc-300 disabled:opacity-40"
+                >
+                  <span>{icon}</span>
+                  <span className="whitespace-nowrap">{label}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="flex gap-3">
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -678,6 +821,7 @@ export default function ChatPage() {
               전송
             </button>
           </div>
+          </div>
         </footer>
       </div>
 
@@ -688,7 +832,11 @@ export default function ChatPage() {
 
       {/* 모니터링 탭 */}
       <div className={`flex-1 overflow-y-auto bg-zinc-50 ${activeTab !== 'monitoring' ? 'hidden' : ''}`}>
-        <MonitoringTab onTabSwitch={setActiveTab} />
+        <MonitoringTab
+          onTabSwitch={setActiveTab}
+          suggestedAccommodations={suggestedAccommodations}
+          pendingDates={pendingDates}
+        />
       </div>
 
       {/* 모니터링 등록 모달 */}

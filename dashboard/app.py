@@ -1,5 +1,6 @@
 import streamlit as st
 import os
+import subprocess
 from datetime import datetime
 
 try:
@@ -42,41 +43,94 @@ def get_supabase():
             return None
     return None
 
-MOCK_AGENTS = [
-    {"agent_id": "local_4ceb4a29", "agent_name": "CEO 에이전트", "role": "프로젝트 방향 감독", "status": "idle", "current_task": None},
-    {"agent_id": "local_62640cda", "agent_name": "디자이너 에이전트", "role": "UI/UX 전담", "status": "idle", "current_task": None},
-    {"agent_id": "local_abf1d986", "agent_name": "검증 에이전트", "role": "타입체크/테스트/빌드", "status": "idle", "current_task": None},
-    {"agent_id": "local_32e8d9bb", "agent_name": "형상관리 에이전트", "role": "브랜치 머지/Push", "status": "idle", "current_task": None},
-    {"agent_id": "pm_agent", "agent_name": "PM 에이전트", "role": "작업 배분/관리", "status": "working", "current_task": "에이전트 정리 및 전광판 구축"},
-]
-
-MOCK_KANBAN = {
-    "backlog": [
-        {"title": "SerpAPI Key 연결", "priority": "high", "assigned_to": None},
-        {"title": "Vercel 배포", "priority": "high", "assigned_to": None},
-        {"title": "Redis Cloud 설정", "priority": "medium", "assigned_to": None},
-        {"title": "/api/flights 딥링크 연결", "priority": "medium", "assigned_to": None},
-    ],
-    "analyzing": [],
-    "designing": [],
-    "developing": [
-        {"title": "전광판 구현", "priority": "high", "assigned_to": "PM 에이전트"},
-    ],
-    "verifying": [],
-    "done": [
-        {"title": "항공권 Provider 패턴 (SerpAPI)", "priority": "high", "assigned_to": None},
-        {"title": "딥링크 엔진 구현", "priority": "medium", "assigned_to": None},
-        {"title": "일정 관리 대시보드", "priority": "medium", "assigned_to": None},
-        {"title": "마크다운 렌더링 수정", "priority": "high", "assigned_to": None},
-        {"title": "탭 채팅 리셋 수정 (SPA)", "priority": "high", "assigned_to": None},
-    ],
-}
-
 MOCK_LOGS = [
     {"created_at": datetime.now().strftime("%Y-%m-%d %H:%M"), "event_type": "task_assigned", "agent_name": "PM 에이전트", "message": "전광판 구현 작업 시작"},
     {"created_at": datetime.now().strftime("%Y-%m-%d %H:%M"), "event_type": "agent_status_change", "agent_name": "검증 에이전트", "message": "idle 상태로 대기 중"},
     {"created_at": datetime.now().strftime("%Y-%m-%d %H:%M"), "event_type": "merge_request", "agent_name": "형상관리 에이전트", "message": "main 브랜치 최신 상태 확인 완료"},
 ]
+
+
+def get_git_info():
+    repo = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+    try:
+        log = subprocess.check_output(
+            ["git", "log", "--oneline", "-10"],
+            cwd=repo, text=True, stderr=subprocess.DEVNULL
+        ).strip().splitlines()
+        branch = subprocess.check_output(
+            ["git", "branch", "--show-current"],
+            cwd=repo, text=True, stderr=subprocess.DEVNULL
+        ).strip()
+        pending = subprocess.check_output(
+            ["git", "branch", "--no-merged", "main"],
+            cwd=repo, text=True, stderr=subprocess.DEVNULL
+        ).strip().splitlines()
+        pending = [b.strip().lstrip("* ") for b in pending if b.strip()]
+        return log, branch, pending
+    except Exception:
+        return [], "main", []
+
+
+def build_dynamic_kanban():
+    log, branch, pending = get_git_info()
+
+    done = [
+        {
+            "title": c[8:58] if len(c) > 8 else c,
+            "priority": "medium",
+            "assigned_to": c[:7],
+        }
+        for c in log[:5]
+    ]
+
+    developing = [
+        {
+            "title": b.replace("feature/", "").replace("feat/", "").replace("claude/", ""),
+            "priority": "high",
+            "assigned_to": None,
+        }
+        for b in pending[:3]
+    ]
+    if not developing:
+        developing = [{"title": "UI/UX 4종 개선 (진행중)", "priority": "high", "assigned_to": "디자이너"}]
+
+    return {
+        "backlog": [
+            {"title": "SerpAPI 실제 검색 검증", "priority": "high", "assigned_to": None},
+            {"title": "Vercel 배포", "priority": "high", "assigned_to": None},
+            {"title": "Supabase 마이그레이션 적용", "priority": "medium", "assigned_to": None},
+            {"title": "Redis Cloud 설정", "priority": "medium", "assigned_to": None},
+        ],
+        "analyzing": [],
+        "designing": [{"title": "UI/UX 설계 완료", "priority": "high", "assigned_to": "CEO+디자이너"}],
+        "developing": developing,
+        "verifying": [],
+        "done": done,
+    }
+
+
+def build_dynamic_agents():
+    return [
+        {"agent_id": "local_4ceb4a29", "agent_name": "CEO 에이전트", "role": "프로젝트 방향 감독", "status": "idle", "current_task": None},
+        {"agent_id": "cto", "agent_name": "CTO 에이전트", "role": "기술 스택 및 아키텍처", "status": "idle", "current_task": None},
+        {"agent_id": "local_62640cda", "agent_name": "디자이너 에이전트", "role": "UI/UX 전담", "status": "working", "current_task": "UI/UX 4종 개선 구현 중"},
+        {"agent_id": "local_abf1d986", "agent_name": "검증 에이전트", "role": "타입체크/테스트/빌드", "status": "idle", "current_task": None},
+        {"agent_id": "local_32e8d9bb", "agent_name": "형상관리 에이전트", "role": "브랜치 머지/Push", "status": "idle", "current_task": None},
+        {"agent_id": "local_e61f1895", "agent_name": "PM 에이전트", "role": "작업 배분/관리", "status": "working", "current_task": "AGENTS.md + SOUL.md 정비"},
+    ]
+
+
+def build_dynamic_logs():
+    log, _, _ = get_git_info()
+    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    event_map = {"feat": "task_assigned", "fix": "verification_complete", "merge": "merge_request", "docs": "agent_status_change"}
+    entries = []
+    for c in log[:8]:
+        sha, msg = c[:7], c[8:] if len(c) > 8 else c
+        etype = next((v for k, v in event_map.items() if msg.lower().startswith(k)), "task_assigned")
+        entries.append({"created_at": now, "event_type": etype, "agent_name": "형상관리", "message": f"[{sha}] {msg[:60]}"})
+    return entries if entries else MOCK_LOGS
+
 
 def get_agents(sb):
     if sb:
@@ -84,21 +138,23 @@ def get_agents(sb):
             return sb.table("agent_statuses").select("*").order("created_at").execute().data
         except Exception:
             pass
-    return MOCK_AGENTS
+    return build_dynamic_agents()
+
 
 def get_kanban(sb):
     if sb:
         try:
             tasks = sb.table("kanban_tasks").select("*").order("created_at").execute().data
-            grouped = {k: [] for k in ["backlog","analyzing","designing","developing","verifying","done"]}
+            grouped = {k: [] for k in ["backlog", "analyzing", "designing", "developing", "verifying", "done"]}
             for t in tasks:
-                col = t.get("status","backlog")
+                col = t.get("status", "backlog")
                 if col in grouped:
                     grouped[col].append(t)
             return grouped
         except Exception:
             pass
-    return MOCK_KANBAN
+    return build_dynamic_kanban()
+
 
 def get_logs(sb, limit=20):
     if sb:
@@ -106,15 +162,16 @@ def get_logs(sb, limit=20):
             return sb.table("dispatch_logs").select("*").order("created_at", desc=True).limit(limit).execute().data
         except Exception:
             pass
-    return MOCK_LOGS
+    return build_dynamic_logs()
+
 
 def status_badge(s):
-    return {"idle":"⚪ 대기","working":"🔵 작업중","reviewing":"🟡 검토중","offline":"🔴 오프라인"}.get(s, s)
+    return {"idle": "⚪ 대기", "working": "🔵 작업중", "reviewing": "🟡 검토중", "offline": "🔴 오프라인"}.get(s, s)
 
 def priority_icon(p):
-    return {"high":"🔴","medium":"🟡","low":"🟢","critical":"⚡"}.get(p,"⚪")
+    return {"high": "🔴", "medium": "🟡", "low": "🟢", "critical": "⚡"}.get(p, "⚪")
 
-EVENT_ICONS = {"task_assigned":"📌","agent_status_change":"🔄","merge_request":"🔀","verification_complete":"✅","error":"❌"}
+EVENT_ICONS = {"task_assigned": "📌", "agent_status_change": "🔄", "merge_request": "🔀", "verification_complete": "✅", "error": "❌"}
 
 # ─── Header ───
 st.markdown("# ✈️ AI Travel Agent — 개발 전광판")
@@ -135,7 +192,7 @@ with st.sidebar:
 
 sb = get_supabase()
 if not sb:
-    st.warning("⚠️ Supabase 미연결 — 목업 데이터 표시 중 (환경변수: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)")
+    st.warning("⚠️ Supabase 미연결 — git 상태 기반 동적 데이터 표시 중")
 
 st.divider()
 
@@ -158,15 +215,15 @@ st.divider()
 # ─── 칸반 보드 ───
 st.markdown("## 📋 칸반 보드")
 kanban = get_kanban(sb)
-col_labels = [("backlog","📦 백로그"),("analyzing","🔍 분석중"),("designing","🎨 디자인중"),
-              ("developing","⚙️ 개발중"),("verifying","✅ 검증중"),("done","🚀 완료")]
+col_labels = [("backlog", "📦 백로그"), ("analyzing", "🔍 분석중"), ("designing", "🎨 디자인중"),
+              ("developing", "⚙️ 개발중"), ("verifying", "✅ 검증중"), ("done", "🚀 완료")]
 kcols = st.columns(6)
 for i, (key, label) in enumerate(col_labels):
     tasks = kanban.get(key, [])
     with kcols[i]:
         st.markdown(f"**{label}** `{len(tasks)}`")
         for t in tasks:
-            p = t.get("priority","medium")
+            p = t.get("priority", "medium")
             assigned = f"<br><small>👤 {t.get('assigned_to')}</small>" if t.get("assigned_to") else ""
             st.markdown(f"""<div class="task-card priority-{p}">
 {priority_icon(p)} {t.get('title','')}{assigned}
@@ -177,8 +234,8 @@ st.divider()
 # ─── 디스패치 로그 ───
 st.markdown("## 📡 디스패치 로그")
 for log in get_logs(sb):
-    ts = str(log.get("created_at",""))[:16].replace("T"," ")
-    icon = EVENT_ICONS.get(log.get("event_type",""), "📋")
+    ts = str(log.get("created_at", ""))[:16].replace("T", " ")
+    icon = EVENT_ICONS.get(log.get("event_type", ""), "📋")
     st.markdown(f"`{ts}` {icon} **{log.get('agent_name','System')}** — {log.get('message','')}")
 
 if st.button("🔄 새로고침"):

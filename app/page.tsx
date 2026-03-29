@@ -42,6 +42,28 @@ const PROGRESS_STEPS = [
 
 const STORAGE_KEY = 'travel_chat_messages';
 
+const QUICK_ACTIONS = [
+  { icon: '✈️', label: '항공편 더 보기', msg: '항공편 옵션을 더 자세히 보여줘' },
+  { icon: '🏨', label: '숙소 추천', msg: '숙소를 더 자세히 추천해줘' },
+  { icon: '📅', label: '상세 일정', msg: '일정을 더 자세하게 만들어줘' },
+  { icon: '💡', label: '여행 팁', msg: '이 여행에서 유용한 팁을 알려줘' },
+  { icon: '💰', label: '예산 정리', msg: '예상 여행 예산을 정리해줘' },
+] as const;
+
+const CONCEPTS = [
+  { emoji: '🏯', label: '문화탐방' },
+  { emoji: '🍜', label: '미식여행' },
+  { emoji: '♨️', label: '온천·힐링' },
+  { emoji: '🏄', label: '액티비티' },
+  { emoji: '🛍', label: '쇼핑' },
+  { emoji: '🌿', label: '자연·힐링' },
+  { emoji: '👫', label: '커플여행' },
+  { emoji: '👨‍👩‍👧', label: '가족여행' },
+  { emoji: '🧳', label: '혼자여행' },
+  { emoji: '💰', label: '알뜰여행' },
+  { emoji: '💎', label: '프리미엄' },
+];
+
 type ActiveTab = 'chat' | 'itinerary' | 'monitoring';
 
 function parseMessageContent(content: string): { text: string; options: string[]; flightParams: FlightSearchParams | null } {
@@ -182,6 +204,10 @@ export default function ChatPage() {
   const [flightLoading, setFlightLoading] = useState<Record<number, boolean>>({});
   const [addedFlights, setAddedFlights] = useState<Set<string>>(new Set());
   const [pendingCount, setPendingCount] = useState(0);
+  const [selectedConcepts, setSelectedConcepts] = useState<string[]>([]);
+  const [pendingDates, setPendingDates] = useState<{ depart: string; return: string }>({ depart: '', return: '' });
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [suggestedAccommodations, setSuggestedAccommodations] = useState<Array<{ name: string; url?: string; checkIn?: string; checkOut?: string }>>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isStreamingRef = useRef(false);
 
@@ -228,6 +254,14 @@ export default function ChatPage() {
     try {
       localStorage.removeItem(STORAGE_KEY);
     } catch { /* 무시 */ }
+  }, []);
+
+  const toggleConcept = useCallback((label: string) => {
+    setSelectedConcepts((prev) => {
+      if (prev.includes(label)) return prev.filter((c) => c !== label);
+      if (prev.length >= 3) return prev;
+      return [...prev, label];
+    });
   }, []);
 
   const sendMessage = useCallback(async (text: string) => {
@@ -316,6 +350,41 @@ export default function ChatPage() {
       .finally(() => {
         setFlightLoading((prev) => ({ ...prev, [lastIdx]: false }));
       });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading]);
+
+  // AI 응답 완료 후 날짜 필요 여부 감지 + 숙소명 추출
+  useEffect(() => {
+    if (isLoading) return;
+    const lastMsg = messages[messages.length - 1];
+    if (!lastMsg || lastMsg.role !== 'assistant' || !lastMsg.content) return;
+    const content = lastMsg.content;
+
+    // 날짜 피커 트리거
+    const needsDate =
+      (content.includes('[FLIGHTS_SEARCH:') && !/departureDate/.test(content)) ||
+      /날짜.{0,10}(알려주|입력해|있으시면|알아야|필요)/.test(content);
+    if (needsDate) setShowDatePicker(true);
+
+    // 숙소명 추출: [ACCOMMODATION:{...}] 마크업 우선, 없으면 텍스트 패턴
+    const extracted: Array<{ name: string; url?: string }> = [];
+    const markupMatches = content.match(/\[ACCOMMODATION:\s*(\{[^}]+\})\]/g) ?? [];
+    for (const m of markupMatches) {
+      try {
+        const json = m.replace(/^\[ACCOMMODATION:\s*/, '').replace(/\]$/, '');
+        extracted.push(JSON.parse(json) as { name: string; url?: string });
+      } catch { /* 무시 */ }
+    }
+    if (extracted.length === 0) {
+      const textMatches = content.match(/(?:호텔|료칸|旅館|inn|hotel|resort)[^\n,。！!?]{1,25}/gi) ?? [];
+      for (const m of textMatches) {
+        const name = m.trim();
+        if (name.length >= 4) extracted.push({ name });
+      }
+    }
+    if (extracted.length > 0) {
+      setSuggestedAccommodations(extracted.slice(0, 3));
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoading]);
 
@@ -656,7 +725,23 @@ export default function ChatPage() {
         </main>
 
         <footer className="bg-white border-t px-4 py-4">
-          <div className="flex gap-3 max-w-4xl mx-auto">
+          <div className="max-w-4xl mx-auto flex flex-col gap-2">
+          {messages.length > 0 && (
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+              {QUICK_ACTIONS.map(({ icon, label, msg }) => (
+                <button
+                  key={label}
+                  onClick={() => sendMessage(msg)}
+                  disabled={isLoading}
+                  className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-100 hover:bg-zinc-200 text-sm text-zinc-600 hover:text-zinc-900 transition-colors border border-zinc-200 hover:border-zinc-300 disabled:opacity-40"
+                >
+                  <span>{icon}</span>
+                  <span className="whitespace-nowrap">{label}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="flex gap-3">
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -677,6 +762,7 @@ export default function ChatPage() {
             >
               전송
             </button>
+          </div>
           </div>
         </footer>
       </div>

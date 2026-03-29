@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { MONITOR_JOBS_KEY, type MonitorJob } from '@/app/page';
+import { MONITOR_JOBS_KEY, type MonitorJob } from '@/lib/monitor/types';
 import { supabase } from '@/lib/db/supabase';
 
 export default function MonitorsPage() {

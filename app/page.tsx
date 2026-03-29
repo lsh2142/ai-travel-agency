@@ -1,26 +1,19 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import type { ChatMessage } from '@/types';
 import type { FlightResult, FlightSearchParams } from '@/lib/flights/types';
 import { supabase } from '@/lib/db/supabase';
 import { getItineraries, createItinerary, addItemToItinerary } from '@/lib/itinerary/store';
+import { MONITOR_JOBS_KEY, type MonitorJob } from '@/lib/monitor/types';
+import ItineraryTab from '@/components/ItineraryTab';
+import MonitoringTab from '@/components/MonitoringTab';
 
-export const MONITOR_JOBS_KEY = 'monitor_jobs';
-
-export interface MonitorJob {
-  jobId: string;
-  accommodationName: string;
-  url: string;
-  checkIn: string;
-  checkOut: string;
-  guests: number;
-  telegramId: string;
-  registeredAt: string;
-}
+export { MONITOR_JOBS_KEY };
+export type { MonitorJob };
 
 interface MonitorForm {
   accommodationName: string;
@@ -48,6 +41,8 @@ const PROGRESS_STEPS = [
 ];
 
 const STORAGE_KEY = 'travel_chat_messages';
+
+type ActiveTab = 'chat' | 'itinerary' | 'monitoring';
 
 function parseMessageContent(content: string): { text: string; options: string[]; flightParams: FlightSearchParams | null } {
   let text = content;
@@ -89,7 +84,6 @@ function FlightCard({
 
   return (
     <div className="border border-zinc-200 rounded-2xl bg-white shadow-sm hover:shadow-md transition-shadow overflow-hidden">
-      {/* 헤더 */}
       <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-zinc-100">
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold text-zinc-800">✈ {flight.airline}</span>
@@ -98,7 +92,6 @@ function FlightCard({
         </div>
         <span className="text-base font-bold text-blue-600">₩{priceFormatted}</span>
       </div>
-      {/* 루트 */}
       <div className="px-4 py-3 flex items-center gap-3">
         <div className="text-center">
           <div className="text-lg font-bold text-zinc-900">{depTime}</div>
@@ -116,7 +109,6 @@ function FlightCard({
           <div className="text-xs text-zinc-500 font-mono">{flight.destination}</div>
         </div>
       </div>
-      {/* 액션 */}
       <div className="px-4 pb-3 flex items-center gap-2 justify-end">
         {added ? (
           <>
@@ -159,7 +151,19 @@ function FlightCard({
 
 export default function ChatPage() {
   const router = useRouter();
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [activeTab, setActiveTab] = useState<ActiveTab>('chat');
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored) as Array<Omit<ChatMessage, 'timestamp'> & { timestamp: string }>;
+          return parsed.map((m) => ({ ...m, timestamp: new Date(m.timestamp) }));
+        }
+      } catch { /* 무시 */ }
+    }
+    return [];
+  });
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [progressStep, setProgressStep] = useState<string | null>(null);
@@ -169,6 +173,7 @@ export default function ChatPage() {
   const [flightResults, setFlightResults] = useState<Record<number, FlightResult[]>>({});
   const [flightLoading, setFlightLoading] = useState<Record<number, boolean>>({});
   const [addedFlights, setAddedFlights] = useState<Set<string>>(new Set());
+  const [pendingCount, setPendingCount] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isStreamingRef = useRef(false);
 
@@ -178,37 +183,24 @@ export default function ChatPage() {
     router.push('/auth');
   }, [router]);
 
-  // localStorage에서 메시지 로드 (마운트 시 1회)
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored) as Array<Omit<ChatMessage, 'timestamp'> & { timestamp: string }>;
-        const restored: ChatMessage[] = parsed.map((m) => ({
-          ...m,
-          timestamp: new Date(m.timestamp),
-        }));
-        setMessages(restored);
-      }
-    } catch {
-      // localStorage 접근 불가 또는 파싱 오류 시 무시
-    }
-  }, []);
-
   // messages 변경 시 localStorage 저장
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
-    } catch {
-      // localStorage 저장 실패 시 무시
-    }
+    } catch { /* 무시 */ }
   }, [messages]);
+
+  // 일정 탭 전환 시 pending count 갱신
+  useEffect(() => {
+    const all = getItineraries();
+    const count = all.flatMap((t) => t.items).filter((i) => i.bookingStatus === 'planned').length;
+    setPendingCount(count);
+  }, [activeTab]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, progressStep]);
 
-  // 스트리밍 중이 아닐 때만 progress step 사이클 실행
   useEffect(() => {
     if (!isLoading || isStreamingRef.current) {
       if (!isLoading) setProgressStep(null);
@@ -227,9 +219,7 @@ export default function ChatPage() {
     setMessages([]);
     try {
       localStorage.removeItem(STORAGE_KEY);
-    } catch {
-      // 무시
-    }
+    } catch { /* 무시 */ }
   }, []);
 
   const sendMessage = useCallback(async (text: string) => {
@@ -256,7 +246,6 @@ export default function ChatPage() {
         return;
       }
 
-      // 스트리밍 시작 - 빈 assistant 메시지 추가 후 progressStep 숨기기
       isStreamingRef.current = true;
       setProgressStep(null);
       setMessages((prev) => [
@@ -292,7 +281,6 @@ export default function ChatPage() {
     }
   }, [isLoading, messages]);
 
-  // 스트리밍 완료 후 FLIGHTS_SEARCH 마커 감지 → 자동 항공권 검색
   useEffect(() => {
     if (isLoading) return;
     const lastIdx = messages.length - 1;
@@ -334,7 +322,6 @@ export default function ChatPage() {
 
   const handleAddFlightToItinerary = useCallback((flight: FlightResult, key: string) => {
     const itineraries = getItineraries();
-    const now = new Date().toISOString();
     const flightDate = flight.departureTime.split(' ')[0] ?? new Date().toISOString().split('T')[0];
     let itineraryId: string;
     if (itineraries.length === 0) {
@@ -428,13 +415,15 @@ export default function ChatPage() {
         <div className="px-6 py-3 flex justify-between items-center">
           <h1 className="text-xl font-bold text-gray-800">AI 여행 플래닝 에이전트</h1>
           <div className="flex items-center gap-2">
-            <button
-              onClick={handleClearMessages}
-              disabled={isLoading || messages.length === 0}
-              className="text-sm text-gray-400 hover:text-red-500 disabled:opacity-30 border border-gray-200 rounded-lg px-3 py-1 transition-colors"
-            >
-              대화 초기화
-            </button>
+            {activeTab === 'chat' && (
+              <button
+                onClick={handleClearMessages}
+                disabled={isLoading || messages.length === 0}
+                className="text-sm text-gray-400 hover:text-red-500 disabled:opacity-30 border border-gray-200 rounded-lg px-3 py-1 transition-colors"
+              >
+                대화 초기화
+              </button>
+            )}
             <button
               onClick={handleLogout}
               className="text-sm text-gray-400 hover:text-gray-700 border border-gray-200 rounded-lg px-3 py-1 transition-colors"
@@ -444,162 +433,257 @@ export default function ChatPage() {
           </div>
         </div>
         <nav className="flex px-6 gap-1 border-t border-gray-100">
-          <span className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-blue-600 border-b-2 border-blue-500">
+          <button
+            onClick={() => setActiveTab('chat')}
+            className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm border-b-2 transition-colors ${
+              activeTab === 'chat'
+                ? 'font-medium text-blue-600 border-blue-500'
+                : 'text-gray-500 hover:text-gray-800 border-transparent hover:border-gray-300'
+            }`}
+          >
             💬 채팅
-          </span>
-          <Link
-            href="/itinerary"
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-sm text-gray-500 hover:text-gray-800 border-b-2 border-transparent hover:border-gray-300 transition-colors"
+          </button>
+          <button
+            onClick={() => setActiveTab('itinerary')}
+            className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm border-b-2 transition-colors ${
+              activeTab === 'itinerary'
+                ? 'font-medium text-blue-600 border-blue-500'
+                : 'text-gray-500 hover:text-gray-800 border-transparent hover:border-gray-300'
+            }`}
           >
             🗓 일정
-          </Link>
-          <Link
-            href="/monitors"
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-sm text-gray-500 hover:text-gray-800 border-b-2 border-transparent hover:border-gray-300 transition-colors"
+            {pendingCount > 0 && (
+              <span className="ml-1 inline-flex items-center justify-center w-4 h-4 text-xs bg-amber-400 text-white rounded-full font-bold">
+                {pendingCount}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab('monitoring')}
+            className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm border-b-2 transition-colors ${
+              activeTab === 'monitoring'
+                ? 'font-medium text-blue-600 border-blue-500'
+                : 'text-gray-500 hover:text-gray-800 border-transparent hover:border-gray-300'
+            }`}
           >
             🔔 모니터링
-          </Link>
+          </button>
         </nav>
       </header>
 
-      <main className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
-        {messages.length === 0 && (
-          <div className="text-center text-gray-400 mt-20">
-            <p className="text-2xl mb-2">✈️</p>
-            <p className="text-lg font-medium text-gray-500">어디로 여행을 떠나고 싶으신가요?</p>
-            <p className="text-sm mt-2 mb-6">예: "다음 달 3박 4일로 교토 여행 계획 짜줘. 2명이고 예산은 50만원이야"</p>
-            <div className="grid grid-cols-2 gap-3 max-w-sm mx-auto">
-              {[
-                '🏯 교토 3박 4일 추천해줘',
-                '🗼 도쿄 가족여행 코스 짜줘',
-                '♨️ 홋카이도 온천 료칸 찾아줘',
-                '🍜 오사카 맛집 투어 2박 3일',
-              ].map((prompt) => (
-                <button
-                  key={prompt}
-                  onClick={() => sendMessage(prompt)}
-                  disabled={isLoading}
-                  className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700 hover:border-blue-300 hover:bg-blue-50 transition-colors shadow-sm disabled:opacity-50"
-                >
-                  {prompt}
-                </button>
-              ))}
+      {/* 채팅 탭 */}
+      <div className={`flex flex-col flex-1 overflow-hidden ${activeTab !== 'chat' ? 'hidden' : ''}`}>
+        <main className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
+          {messages.length === 0 && (
+            <div className="text-center text-gray-400 mt-20">
+              <p className="text-2xl mb-2">✈️</p>
+              <p className="text-lg font-medium text-gray-500">어디로 여행을 떠나고 싶으신가요?</p>
+              <p className="text-sm mt-2 mb-6">예: "다음 달 3박 4일로 교토 여행 계획 짜줘. 2명이고 예산은 50만원이야"</p>
+              <div className="grid grid-cols-2 gap-3 max-w-sm mx-auto">
+                {[
+                  '🏯 교토 3박 4일 추천해줘',
+                  '🗼 도쿄 가족여행 코스 짜줘',
+                  '♨️ 홋카이도 온천 료칸 찾아줘',
+                  '🍜 오사카 맛집 투어 2박 3일',
+                ].map((prompt) => (
+                  <button
+                    key={prompt}
+                    onClick={() => sendMessage(prompt)}
+                    disabled={isLoading}
+                    className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700 hover:border-blue-300 hover:bg-blue-50 transition-colors shadow-sm disabled:opacity-50"
+                  >
+                    {prompt}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {messages.map((msg, idx) => {
-          if (msg.role === 'user') {
-            return (
-              <div key={idx} className="flex justify-end">
-                <div className="max-w-[80%] rounded-2xl px-4 py-3 bg-blue-500 text-white shadow-sm">
-                  <p className="whitespace-pre-wrap text-sm">{msg.content}</p>
+          {messages.map((msg, idx) => {
+            if (msg.role === 'user') {
+              return (
+                <div key={idx} className="flex justify-end">
+                  <div className="max-w-[80%] rounded-2xl px-4 py-3 bg-blue-500 text-white shadow-sm">
+                    <p className="whitespace-pre-wrap text-sm">{msg.content}</p>
+                  </div>
                 </div>
+              );
+            }
+
+            const { text, options, flightParams } = parseMessageContent(msg.content);
+            const msgFlights = flightResults[idx];
+            const msgFlightLoading = flightLoading[idx];
+            return (
+              <div key={idx} className="flex flex-col items-start gap-2">
+                <div className="flex items-start gap-2">
+                  <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                    <span>🤖</span>
+                  </div>
+                  <div className="max-w-[80%] rounded-2xl px-4 py-3 bg-white border border-gray-200 text-gray-800 shadow-sm">
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        table: ({ children }) => (
+                          <div className="overflow-x-auto my-3">
+                            <table className="w-full border-collapse text-sm">{children}</table>
+                          </div>
+                        ),
+                        thead: ({ children }) => (
+                          <thead className="bg-zinc-100 text-zinc-700">{children}</thead>
+                        ),
+                        th: ({ children }) => (
+                          <th className="border border-zinc-300 px-3 py-2 text-left font-medium">{children}</th>
+                        ),
+                        td: ({ children }) => (
+                          <td className="border border-zinc-200 px-3 py-2">{children}</td>
+                        ),
+                        tr: ({ children }) => (
+                          <tr className="even:bg-zinc-50">{children}</tr>
+                        ),
+                        code: ({ children, className }) => {
+                          const isBlock = className?.includes('language-');
+                          return isBlock ? (
+                            <pre className="bg-zinc-100 rounded p-3 overflow-x-auto text-xs my-2">
+                              <code>{children}</code>
+                            </pre>
+                          ) : (
+                            <code className="bg-zinc-100 rounded px-1 text-xs">{children}</code>
+                          );
+                        },
+                        p: ({ children }) => <p className="mb-2 last:mb-0 text-sm">{children}</p>,
+                        ul: ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-1 text-sm">{children}</ul>,
+                        ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 space-y-1 text-sm">{children}</ol>,
+                        strong: ({ children }) => <strong className="font-semibold text-gray-900">{children}</strong>,
+                      }}
+                    >
+                      {text}
+                    </ReactMarkdown>
+                    <div className="mt-3 pt-3 border-t border-gray-100">
+                      <button
+                        onClick={openMonitorModal}
+                        disabled={isLoading}
+                        className="text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5 transition-colors disabled:opacity-40"
+                      >
+                        🔔 빈방 모니터링 등록
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                {flightParams && (msgFlightLoading || msgFlights) && (
+                  <div className="pl-10 w-full max-w-2xl">
+                    <div className="text-xs font-medium text-gray-500 mb-2 flex items-center gap-1">
+                      ✈️ 항공편 검색 결과
+                      <span className="text-gray-400">
+                        ({flightParams.origin} → {flightParams.destination}, {flightParams.departureDate})
+                      </span>
+                    </div>
+                    {msgFlightLoading ? (
+                      <div className="text-sm text-gray-400 py-2">항공편 검색 중...</div>
+                    ) : msgFlights && msgFlights.length > 0 ? (
+                      <div className="space-y-2">
+                        {msgFlights.map((flight, fi) => {
+                          const flightKey = `${idx}-${flight.flightNumber}`;
+                          return (
+                            <FlightCard
+                              key={fi}
+                              flight={flight}
+                              added={addedFlights.has(flightKey)}
+                              onAddToItinerary={() => handleAddFlightToItinerary(flight, flightKey)}
+                            />
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-gray-400 py-2">검색 결과가 없습니다.</div>
+                    )}
+                  </div>
+                )}
+                {options.length > 0 && (
+                  <div className="flex flex-wrap gap-2 pl-10">
+                    {options.map((opt, oi) => (
+                      <button
+                        key={oi}
+                        onClick={() => sendMessage(opt)}
+                        disabled={isLoading}
+                        className="rounded-full border border-blue-300 bg-blue-50 px-4 py-2 text-sm text-blue-700 hover:bg-blue-100 hover:border-blue-400 disabled:opacity-50 transition-colors"
+                      >
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             );
-          }
+          })}
 
-          const { text, options, flightParams } = parseMessageContent(msg.content);
-          const msgFlights = flightResults[idx];
-          const msgFlightLoading = flightLoading[idx];
-          return (
-            <div key={idx} className="flex flex-col items-start gap-2">
-              <div className="flex items-start gap-2">
-                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                  <span>🤖</span>
-                </div>
-                <div className="max-w-[80%] rounded-2xl px-4 py-3 bg-white border border-gray-200 text-gray-800 shadow-sm prose prose-sm max-w-none">
-                  <ReactMarkdown>{text}</ReactMarkdown>
-                  <div className="mt-3 pt-3 border-t border-gray-100">
-                    <button
-                      onClick={openMonitorModal}
-                      disabled={isLoading}
-                      className="text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5 transition-colors disabled:opacity-40"
-                    >
-                      🔔 빈방 모니터링 등록
-                    </button>
+          {isLoading && !isStreamingRef.current && (
+            <div className="flex justify-start pl-10">
+              <div className="bg-white border border-zinc-200 rounded-2xl px-4 py-3 shadow-sm">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="flex space-x-1">
+                    <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" />
+                    <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce [animation-delay:150ms]" />
+                    <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce [animation-delay:300ms]" />
                   </div>
+                  <span className="text-sm text-zinc-600">{progressStep ?? '처리 중...'}</span>
                 </div>
-              </div>
-              {/* 항공편 검색 결과 카드 */}
-              {flightParams && (msgFlightLoading || msgFlights) && (
-                <div className="pl-10 w-full max-w-2xl">
-                  <div className="text-xs font-medium text-gray-500 mb-2 flex items-center gap-1">
-                    ✈️ 항공편 검색 결과
-                    <span className="text-gray-400">
-                      ({flightParams.origin} → {flightParams.destination}, {flightParams.departureDate})
-                    </span>
-                  </div>
-                  {msgFlightLoading ? (
-                    <div className="text-sm text-gray-400 py-2">항공편 검색 중...</div>
-                  ) : msgFlights && msgFlights.length > 0 ? (
-                    <div className="space-y-2">
-                      {msgFlights.map((flight, fi) => {
-                        const flightKey = `${idx}-${flight.flightNumber}`;
-                        return (
-                          <FlightCard
-                            key={fi}
-                            flight={flight}
-                            added={addedFlights.has(flightKey)}
-                            onAddToItinerary={() => handleAddFlightToItinerary(flight, flightKey)}
-                          />
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="text-sm text-gray-400 py-2">검색 결과가 없습니다.</div>
-                  )}
+                <div className="flex items-center gap-1.5">
+                  {PROGRESS_STEPS.map((step, i) => {
+                    const currentIdx = progressStep ? PROGRESS_STEPS.indexOf(progressStep) : 0;
+                    return (
+                      <div
+                        key={i}
+                        className={`h-1 rounded-full transition-all duration-500 ${
+                          i <= currentIdx ? 'bg-blue-500 flex-[2]' : 'bg-zinc-200 flex-1'
+                        }`}
+                      />
+                    );
+                  })}
                 </div>
-              )}
-              {options.length > 0 && (
-                <div className="flex flex-wrap gap-2 pl-10">
-                  {options.map((opt, oi) => (
-                    <button
-                      key={oi}
-                      onClick={() => sendMessage(opt)}
-                      disabled={isLoading}
-                      className="rounded-full border border-blue-300 bg-blue-50 px-4 py-2 text-sm text-blue-700 hover:bg-blue-100 hover:border-blue-400 disabled:opacity-50 transition-colors"
-                    >
-                      {opt}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
-
-        {isLoading && !isStreamingRef.current && (
-          <div className="flex justify-start pl-10">
-            <div className="bg-white border border-zinc-200 rounded-2xl px-4 py-3 shadow-sm">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="flex space-x-1">
-                  <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" />
-                  <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce [animation-delay:150ms]" />
-                  <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce [animation-delay:300ms]" />
-                </div>
-                <span className="text-sm text-zinc-600">{progressStep ?? '처리 중...'}</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                {PROGRESS_STEPS.map((step, i) => {
-                  const currentIdx = progressStep ? PROGRESS_STEPS.indexOf(progressStep) : 0;
-                  return (
-                    <div
-                      key={i}
-                      className={`h-1 rounded-full transition-all duration-500 ${
-                        i <= currentIdx ? 'bg-blue-500 flex-[2]' : 'bg-zinc-200 flex-1'
-                      }`}
-                    />
-                  );
-                })}
               </div>
             </div>
+          )}
+
+          <div ref={messagesEndRef} />
+        </main>
+
+        <footer className="bg-white border-t px-4 py-4">
+          <div className="flex gap-3 max-w-4xl mx-auto">
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSubmit();
+                }
+              }}
+              placeholder="여행 조건을 입력하세요... (Enter로 전송)"
+              className="flex-1 resize-none rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 max-h-32"
+              rows={2}
+            />
+            <button
+              onClick={handleSubmit}
+              disabled={!input.trim() || isLoading}
+              className="bg-blue-500 text-white px-6 rounded-xl font-medium hover:bg-blue-600 disabled:opacity-50 transition-colors"
+            >
+              전송
+            </button>
           </div>
-        )}
+        </footer>
+      </div>
 
-        <div ref={messagesEndRef} />
-      </main>
+      {/* 일정 탭 */}
+      <div className={`flex-1 overflow-y-auto bg-zinc-50 ${activeTab !== 'itinerary' ? 'hidden' : ''}`}>
+        <ItineraryTab onTabSwitch={setActiveTab} />
+      </div>
 
+      {/* 모니터링 탭 */}
+      <div className={`flex-1 overflow-y-auto bg-zinc-50 ${activeTab !== 'monitoring' ? 'hidden' : ''}`}>
+        <MonitoringTab onTabSwitch={setActiveTab} />
+      </div>
+
+      {/* 모니터링 등록 모달 */}
       {monitorOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6">
@@ -686,31 +770,6 @@ export default function ChatPage() {
           </div>
         </div>
       )}
-
-      <footer className="bg-white border-t px-4 py-4">
-        <div className="flex gap-3 max-w-4xl mx-auto">
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSubmit();
-              }
-            }}
-            placeholder="여행 조건을 입력하세요... (Enter로 전송)"
-            className="flex-1 resize-none rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 max-h-32"
-            rows={2}
-          />
-          <button
-            onClick={handleSubmit}
-            disabled={!input.trim() || isLoading}
-            className="bg-blue-500 text-white px-6 rounded-xl font-medium hover:bg-blue-600 disabled:opacity-50 transition-colors"
-          >
-            전송
-          </button>
-        </div>
-      </footer>
     </div>
   );
 }

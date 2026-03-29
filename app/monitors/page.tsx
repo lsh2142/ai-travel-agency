@@ -59,6 +59,12 @@ export default function MonitorsPage() {
           >
             💬 채팅
           </Link>
+          <Link
+            href="/itinerary"
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-sm text-gray-500 hover:text-gray-800 border-b-2 border-transparent hover:border-gray-300 transition-colors"
+          >
+            🗓 일정
+          </Link>
           <span className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-blue-600 border-b-2 border-blue-500">
             🔔 모니터링
           </span>

@@ -1,9 +1,9 @@
 -- Chat Sessions
 CREATE TABLE IF NOT EXISTS public.chat_sessions (
-  id TEXT PRIMARY KEY,
-  messages JSONB NOT NULL DEFAULT '[]',
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  session_id TEXT PRIMARY KEY,
+  messages   JSONB        NOT NULL DEFAULT '[]',
+  created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
 -- Travel Plans
@@ -20,23 +20,25 @@ CREATE TABLE IF NOT EXISTS public.travel_plans (
 
 -- Monitor Jobs
 CREATE TABLE IF NOT EXISTS public.monitor_jobs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id TEXT NOT NULL,
-  accommodation_id TEXT NOT NULL,
-  url TEXT NOT NULL,
-  site TEXT NOT NULL,
-  check_in TEXT NOT NULL,
-  check_out TEXT NOT NULL,
-  guests INTEGER NOT NULL DEFAULT 1,
-  status TEXT NOT NULL DEFAULT 'active',
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  last_checked_at TIMESTAMPTZ
+  id                 UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id            TEXT         NOT NULL DEFAULT '',
+  accommodation_id   TEXT         NOT NULL,
+  accommodation_name TEXT         NOT NULL DEFAULT '',
+  url                TEXT         NOT NULL,
+  site               TEXT         NOT NULL,
+  check_in           TEXT         NOT NULL,
+  check_out          TEXT         NOT NULL,
+  guests             INTEGER      NOT NULL DEFAULT 1,
+  status             TEXT         NOT NULL DEFAULT 'active',
+  created_at         TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+  last_checked_at    TIMESTAMPTZ
 );
 
 -- Indexes
 CREATE INDEX IF NOT EXISTS travel_plans_user_id_idx ON public.travel_plans(user_id);
 CREATE INDEX IF NOT EXISTS monitor_jobs_user_id_idx ON public.monitor_jobs(user_id);
 CREATE INDEX IF NOT EXISTS monitor_jobs_status_idx ON public.monitor_jobs(status);
+CREATE INDEX IF NOT EXISTS monitor_jobs_created_at_idx ON public.monitor_jobs(created_at DESC);
 
 -- Enable Row Level Security
 ALTER TABLE public.chat_sessions ENABLE ROW LEVEL SECURITY;

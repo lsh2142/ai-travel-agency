@@ -552,27 +552,48 @@ export default function ChatPage() {
       <div className={`flex flex-col flex-1 overflow-hidden ${activeTab !== 'chat' ? 'hidden' : ''}`}>
         <main className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
           {messages.length === 0 && (
-            <div className="text-center text-gray-400 mt-20">
-              <p className="text-2xl mb-2">✈️</p>
-              <p className="text-lg font-medium text-gray-500">어디로 여행을 떠나고 싶으신가요?</p>
-              <p className="text-sm mt-2 mb-6">예: "다음 달 3박 4일로 교토 여행 계획 짜줘. 2명이고 예산은 50만원이야"</p>
-              <div className="grid grid-cols-2 gap-3 max-w-sm mx-auto">
-                {[
-                  '🏯 교토 3박 4일 추천해줘',
-                  '🗼 도쿄 가족여행 코스 짜줘',
-                  '♨️ 홋카이도 온천 료칸 찾아줘',
-                  '🍜 오사카 맛집 투어 2박 3일',
-                ].map((prompt) => (
-                  <button
-                    key={prompt}
-                    onClick={() => sendMessage(prompt)}
-                    disabled={isLoading}
-                    className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700 hover:border-blue-300 hover:bg-blue-50 transition-colors shadow-sm disabled:opacity-50"
-                  >
-                    {prompt}
-                  </button>
-                ))}
+            <div className="text-center mt-16 px-4">
+              <p className="text-3xl mb-3">✈️</p>
+              <p className="text-lg font-medium text-gray-700">어떤 여행을 원하시나요?</p>
+              <p className="text-sm text-gray-400 mt-1 mb-6">여행 컨셉을 선택하면 맞춤 계획을 세워드려요 (최대 3개)</p>
+              <div className="flex flex-wrap justify-center gap-2 max-w-md mx-auto mb-6">
+                {CONCEPTS.map(({ emoji, label }) => {
+                  const isSelected = selectedConcepts.includes(label);
+                  const isDisabled = !isSelected && selectedConcepts.length >= 3;
+                  return (
+                    <button
+                      key={label}
+                      onClick={() => toggleConcept(label)}
+                      disabled={isDisabled}
+                      className={`flex items-center gap-1.5 px-3 py-2 rounded-full border text-sm transition-colors ${
+                        isSelected
+                          ? 'bg-blue-600 border-blue-500 text-white'
+                          : isDisabled
+                          ? 'bg-zinc-100 border-zinc-200 text-zinc-400 opacity-40 cursor-not-allowed'
+                          : 'bg-white border-zinc-200 text-zinc-600 hover:border-blue-300 hover:bg-blue-50'
+                      }`}
+                    >
+                      <span>{emoji}</span>
+                      <span>{label}</span>
+                    </button>
+                  );
+                })}
               </div>
+              {selectedConcepts.length > 0 && (
+                <button
+                  onClick={() => {
+                    sendMessage(`${selectedConcepts.join(', ')} 스타일로 여행 계획해줘`);
+                    setSelectedConcepts([]);
+                  }}
+                  disabled={isLoading}
+                  className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 text-sm font-medium transition-colors disabled:opacity-50 shadow-sm"
+                >
+                  이 컨셉으로 여행 시작 →
+                </button>
+              )}
+              {selectedConcepts.length === 0 && (
+                <p className="text-xs text-zinc-400">또는 아래 입력창에 직접 목적지를 입력하세요</p>
+              )}
             </div>
           )}
 

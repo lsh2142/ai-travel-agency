@@ -153,7 +153,7 @@ export class SerpApiProvider implements FlightProvider {
   name = 'serpapi';
 
   async search(params: FlightSearchParams): Promise<FlightResult[]> {
-    const apiKey = process.env.SERPAPI_KEY;
+    const apiKey = process.env.SERPAPI_KEY || process.env.SERP_API_KEY;
 
     if (!apiKey) {
       console.warn('[SerpApiProvider] SERPAPI_KEY not set — returning mock data');

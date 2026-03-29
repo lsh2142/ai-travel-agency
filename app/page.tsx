@@ -7,6 +7,7 @@ import ReactMarkdown from 'react-markdown';
 import type { ChatMessage } from '@/types';
 import type { FlightResult, FlightSearchParams } from '@/lib/flights/types';
 import { supabase } from '@/lib/db/supabase';
+import { getItineraries, createItinerary, addItemToItinerary } from '@/lib/itinerary/store';
 
 export const MONITOR_JOBS_KEY = 'monitor_jobs';
 
@@ -72,48 +73,85 @@ function parseMessageContent(content: string): { text: string; options: string[]
   return { text, options, flightParams };
 }
 
-function FlightCard({ flight }: { flight: FlightResult }) {
+function FlightCard({
+  flight,
+  onAddToItinerary,
+  added,
+}: {
+  flight: FlightResult;
+  onAddToItinerary: () => void;
+  added: boolean;
+}) {
+  const depTime = flight.departureTime.split(' ')[1] ?? flight.departureTime;
+  const arrTime = flight.arrivalTime.split(' ')[1] ?? flight.arrivalTime;
   const priceFormatted = new Intl.NumberFormat('ko-KR').format(flight.price);
+  const stopLabel = flight.stops === 0 ? '직항' : `경유 ${flight.stops}회`;
+
   return (
-    <div className="border border-gray-200 rounded-xl p-3 bg-white shadow-sm hover:shadow-md transition-shadow">
-      <div className="flex justify-between items-start gap-2">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 text-sm font-medium text-gray-800">
-            <span>{flight.airline}</span>
-            <span className="text-xs text-gray-400">{flight.flightNumber}</span>
-          </div>
-          <div className="flex items-center gap-2 mt-1">
-            <span className="text-base font-bold">{flight.departureTime.split(' ')[1] ?? flight.departureTime}</span>
-            <span className="text-xs text-gray-400">→</span>
-            <span className="text-base font-bold">{flight.arrivalTime.split(' ')[1] ?? flight.arrivalTime}</span>
-          </div>
-          <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
-            <span>{flight.origin} → {flight.destination}</span>
-            <span>·</span>
-            <span>{flight.duration}</span>
-            <span>·</span>
-            <span>{flight.stops === 0 ? '직항' : `경유 ${flight.stops}회`}</span>
+    <div className="border border-zinc-200 rounded-2xl bg-white shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+      {/* 헤더 */}
+      <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-zinc-100">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold text-zinc-800">✈ {flight.airline}</span>
+          <span className="text-xs text-zinc-400 font-mono">{flight.flightNumber}</span>
+          <span className="text-xs bg-zinc-100 text-zinc-500 rounded-full px-2 py-0.5">{stopLabel}</span>
+        </div>
+        <span className="text-base font-bold text-blue-600">₩{priceFormatted}</span>
+      </div>
+      {/* 루트 */}
+      <div className="px-4 py-3 flex items-center gap-3">
+        <div className="text-center">
+          <div className="text-lg font-bold text-zinc-900">{depTime}</div>
+          <div className="text-xs text-zinc-500 font-mono">{flight.origin}</div>
+        </div>
+        <div className="flex-1 flex flex-col items-center gap-0.5">
+          <div className="text-xs text-zinc-400">{flight.duration}</div>
+          <div className="w-full flex items-center gap-1">
+            <div className="h-px flex-1 bg-zinc-300" />
+            <div className="text-zinc-300 text-xs">›</div>
           </div>
         </div>
-        <div className="text-right flex-shrink-0">
-          <div className="text-lg font-bold text-blue-600">
-            ₩{priceFormatted}
-          </div>
-          {flight.bookingUrl ? (
-            <a
-              href={flight.bookingUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-1 inline-block text-xs bg-blue-500 text-white rounded-lg px-3 py-1 hover:bg-blue-600 transition-colors"
+        <div className="text-center">
+          <div className="text-lg font-bold text-zinc-900">{arrTime}</div>
+          <div className="text-xs text-zinc-500 font-mono">{flight.destination}</div>
+        </div>
+      </div>
+      {/* 액션 */}
+      <div className="px-4 pb-3 flex items-center gap-2 justify-end">
+        {added ? (
+          <>
+            <span className="text-xs text-emerald-600 font-medium">✅ 일정 추가됨</span>
+            {flight.bookingUrl && (
+              <a
+                href={flight.bookingUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs bg-blue-500 text-white rounded-lg px-3 py-1.5 hover:bg-blue-600 transition-colors"
+              >
+                지금 예약하기 →
+              </a>
+            )}
+          </>
+        ) : (
+          <>
+            {flight.bookingUrl && (
+              <a
+                href={flight.bookingUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs border border-zinc-200 text-zinc-600 rounded-lg px-3 py-1.5 hover:bg-zinc-50 transition-colors"
+              >
+                예약하기
+              </a>
+            )}
+            <button
+              onClick={onAddToItinerary}
+              className="text-xs bg-blue-50 border border-blue-200 text-blue-700 rounded-lg px-3 py-1.5 hover:bg-blue-100 transition-colors"
             >
-              예약하기
-            </a>
-          ) : (
-            <span className="mt-1 inline-block text-xs bg-gray-100 text-gray-500 rounded-lg px-3 py-1">
-              가격 확인
-            </span>
-          )}
-        </div>
+              ✈ 일정에 추가
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
@@ -130,6 +168,7 @@ export default function ChatPage() {
   const [monitorSubmitting, setMonitorSubmitting] = useState(false);
   const [flightResults, setFlightResults] = useState<Record<number, FlightResult[]>>({});
   const [flightLoading, setFlightLoading] = useState<Record<number, boolean>>({});
+  const [addedFlights, setAddedFlights] = useState<Set<string>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isStreamingRef = useRef(false);
 
@@ -293,6 +332,36 @@ export default function ChatPage() {
     setMonitorOpen(true);
   }, []);
 
+  const handleAddFlightToItinerary = useCallback((flight: FlightResult, key: string) => {
+    const itineraries = getItineraries();
+    const now = new Date().toISOString();
+    const flightDate = flight.departureTime.split(' ')[0] ?? new Date().toISOString().split('T')[0];
+    let itineraryId: string;
+    if (itineraries.length === 0) {
+      const created = createItinerary({
+        title: `${flight.origin} → ${flight.destination}`,
+        startDate: flightDate,
+        endDate: flightDate,
+        items: [],
+      });
+      itineraryId = created.id;
+    } else {
+      itineraryId = itineraries[itineraries.length - 1].id;
+    }
+    addItemToItinerary(itineraryId, {
+      type: 'flight',
+      date: flightDate,
+      title: `${flight.airline} ${flight.flightNumber}`,
+      description: `${flight.origin} → ${flight.destination}  ${flight.departureTime.split(' ')[1] ?? ''} ~ ${flight.arrivalTime.split(' ')[1] ?? ''}`,
+      bookingStatus: 'planned',
+      bookingUrl: flight.bookingUrl,
+      price: flight.price,
+      currency: flight.currency,
+      flightData: flight,
+    });
+    setAddedFlights((prev) => new Set(prev).add(key));
+  }, []);
+
   const handleMonitorSubmit = useCallback(async () => {
     const { accommodationName, url, checkIn, checkOut, guests, telegramId } = monitorForm;
     if (!accommodationName || !checkIn || !checkOut) return;
@@ -379,6 +448,12 @@ export default function ChatPage() {
             💬 채팅
           </span>
           <Link
+            href="/itinerary"
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-sm text-gray-500 hover:text-gray-800 border-b-2 border-transparent hover:border-gray-300 transition-colors"
+          >
+            🗓 일정
+          </Link>
+          <Link
             href="/monitors"
             className="inline-flex items-center gap-1.5 px-4 py-2 text-sm text-gray-500 hover:text-gray-800 border-b-2 border-transparent hover:border-gray-300 transition-colors"
           >
@@ -459,9 +534,17 @@ export default function ChatPage() {
                     <div className="text-sm text-gray-400 py-2">항공편 검색 중...</div>
                   ) : msgFlights && msgFlights.length > 0 ? (
                     <div className="space-y-2">
-                      {msgFlights.map((flight, fi) => (
-                        <FlightCard key={fi} flight={flight} />
-                      ))}
+                      {msgFlights.map((flight, fi) => {
+                        const flightKey = `${idx}-${flight.flightNumber}`;
+                        return (
+                          <FlightCard
+                            key={fi}
+                            flight={flight}
+                            added={addedFlights.has(flightKey)}
+                            onAddToItinerary={() => handleAddFlightToItinerary(flight, flightKey)}
+                          />
+                        );
+                      })}
                     </div>
                   ) : (
                     <div className="text-sm text-gray-400 py-2">검색 결과가 없습니다.</div>
@@ -487,16 +570,29 @@ export default function ChatPage() {
         })}
 
         {isLoading && !isStreamingRef.current && (
-          <div className="flex justify-start">
-            <div className="bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-sm flex items-center gap-3">
-              <div className="flex space-x-1">
-                <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" />
-                <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce delay-100" />
-                <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce delay-200" />
+          <div className="flex justify-start pl-10">
+            <div className="bg-white border border-zinc-200 rounded-2xl px-4 py-3 shadow-sm">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="flex space-x-1">
+                  <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" />
+                  <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce [animation-delay:150ms]" />
+                  <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce [animation-delay:300ms]" />
+                </div>
+                <span className="text-sm text-zinc-600">{progressStep ?? '처리 중...'}</span>
               </div>
-              {progressStep && (
-                <span className="text-sm text-gray-500">{progressStep}</span>
-              )}
+              <div className="flex items-center gap-1.5">
+                {PROGRESS_STEPS.map((step, i) => {
+                  const currentIdx = progressStep ? PROGRESS_STEPS.indexOf(progressStep) : 0;
+                  return (
+                    <div
+                      key={i}
+                      className={`h-1 rounded-full transition-all duration-500 ${
+                        i <= currentIdx ? 'bg-blue-500 flex-[2]' : 'bg-zinc-200 flex-1'
+                      }`}
+                    />
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}

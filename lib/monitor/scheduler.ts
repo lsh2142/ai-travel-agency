@@ -78,16 +78,12 @@ export class MonitorScheduler {
     return job.id ?? data.jobId;
   }
 
-  async listJobs(): Promise<{ jobId: string; name: string; next: number | null }[]> {
+  async listJobs(): Promise<Array<{ jobId: string; key: string; name: string; next: number | null }>> {
     if (!this.isAvailable || !this.queue) {
       return [];
     }
-    const repeatableJobs = await this.queue.getRepeatableJobs();
-    return repeatableJobs.map((j) => ({
-      jobId: j.id ?? j.key,
-      name: j.name,
-      next: j.next ?? null,
-    }));
+    const jobs = await this.queue.getRepeatableJobs();
+    return jobs.map((j) => ({ jobId: j.id ?? j.key, key: j.key, name: j.name, next: j.next ?? null }));
   }
 
   async removeJob(jobId: string): Promise<void> {

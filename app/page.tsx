@@ -116,6 +116,10 @@ export default function HomePage() {
                 className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
+            <div>{/* spacer */}</div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-zinc-600 mb-1">📅 출발일</label>
               <input
@@ -130,9 +134,6 @@ export default function HomePage() {
                 className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
-          </div>
-
-          {params.dates?.start && (
             <div>
               <label className="block text-xs font-medium text-zinc-600 mb-1">📅 귀국일</label>
               <input
@@ -148,7 +149,7 @@ export default function HomePage() {
                 className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
-          )}
+          </div>
 
           <div>
             <label className="block text-xs font-medium text-zinc-600 mb-2">
@@ -196,17 +197,9 @@ export default function HomePage() {
                   handleChatSend()
                 }
               }}
-              placeholder="예: 도쿄로 3박4일 혼자 여행, 미식 위주로"
-              className="flex-1 rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="예: 도쿄로 3박4일 혼자 여행, 미식 위주로  (Enter로 제출)"
+              className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-            <button
-              type="button"
-              onClick={handleChatSend}
-              disabled={!chatInput.trim() || isParsingChat}
-              className="px-4 py-2 bg-zinc-800 text-white rounded-lg text-sm font-medium hover:bg-zinc-700 disabled:opacity-40 transition-colors"
-            >
-              {isParsingChat ? '...' : '전송'}
-            </button>
           </div>
           {chatParsed && (
             <p className="mt-2 text-xs text-emerald-600">

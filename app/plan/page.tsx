@@ -53,7 +53,7 @@ function AlternativeSelector({
             <p className="text-sm font-semibold text-zinc-900 truncate">{alt.name}</p>
             <p className="text-xs text-zinc-500 mt-0.5 line-clamp-2">{alt.description}</p>
             <div className="flex items-center justify-between mt-2">
-              <span className="text-xs font-medium text-blue-600">{alt.price}</span>
+              <span className="text-base font-semibold text-emerald-600">{alt.price}</span>
               {alt.rating && (
                 <span className="text-xs text-amber-500">★ {alt.rating}</span>
               )}

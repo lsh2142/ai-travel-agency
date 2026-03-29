@@ -28,7 +28,7 @@ export const TRAVEL_ITINERARY_SYSTEM_PROMPT = `당신은 전문 여행일정 기
     "id": "alt_1",
     "name": "숙소/액티비티 이름",
     "description": "설명 (특징, 위치, 포함사항 등)",
-    "price": "가격 (예: ₩150,000/박, ₩25,000/인)",
+    "price": "반드시 실제 예상 가격 범위를 포함할 것 (예: '1박 ₩85,000~', '1박 $120~', '1박 ¥15,000~', '₩25,000/인'). 가격 미상이어도 웹 기준 예상 범위를 제시할 것. '가격 미정' 금지.",
     "rating": 4.5,
     "bookingUrl": "https://...",
     "category": "accommodation|activity|restaurant|transport"

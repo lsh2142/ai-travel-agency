@@ -170,16 +170,35 @@ export default function BookingPage() {
   const totalCount = bookingItems.length
   const allProcessed = totalCount > 0 && processedCount >= totalCount
 
-  function handleFinish() {
+  async function handleFinish() {
     const tripId = plan?.id ?? crypto.randomUUID()
-    // Save completed trip
+
+    // Save to localStorage
     const trips = JSON.parse(localStorage.getItem('trips') ?? '[]')
-    trips.push({
-      id: tripId,
-      plan,
-      completedAt: new Date().toISOString(),
-    })
-    localStorage.setItem('trips', JSON.stringify(trips))
+    const alreadySaved = trips.some((t: { id: string }) => t.id === tripId)
+    if (!alreadySaved) {
+      trips.push({ id: tripId, plan, completedAt: new Date().toISOString() })
+      localStorage.setItem('trips', JSON.stringify(trips))
+    }
+
+    // Save to Supabase if logged in (best-effort, silent fail)
+    try {
+      await fetch('/api/trips', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: tripId,
+          destination: plan!.params.destination,
+          check_in: plan!.params.dates?.start ?? null,
+          check_out: plan!.params.dates?.end ?? null,
+          guests: plan!.params.people,
+          plan_data: plan,
+        }),
+      })
+    } catch {
+      // not logged in or network error — localStorage is the fallback
+    }
+
     router.push(`/trips/${tripId}`)
   }
 

@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import type { TravelParams } from '@/lib/types/travel'
+import type { TravelParams, TripPlan } from '@/lib/types/travel'
 
 const THEMES = [
   { emoji: '🏯', label: '문화탐방' },
@@ -23,14 +23,62 @@ const INITIAL_PARAMS: TravelParams = {
   freeText: '',
 }
 
+interface RecentTrip {
+  id: string
+  title: string
+  destination: string
+  startDate: string
+  endDate: string
+}
+
 export default function HomePage() {
   const router = useRouter()
   const [params, setParams] = useState<TravelParams>(INITIAL_PARAMS)
   const [chatInput, setChatInput] = useState('')
   const [isParsingChat, setIsParsingChat] = useState(false)
   const [chatParsed, setChatParsed] = useState(false)
+  const [loggedIn, setLoggedIn] = useState<boolean | null>(null) // null = loading
+  const [recentTrips, setRecentTrips] = useState<RecentTrip[]>([])
 
   const canSubmit = params.destination.trim() !== '' || chatInput.trim() !== ''
+
+  useEffect(() => {
+    // Check auth and load recent trips
+    fetch('/api/auth/me')
+      .then((r) => r.json())
+      .then(({ user }: { user: { id: string; email: string } | null }) => {
+        setLoggedIn(!!user)
+
+        // Load up to 2 most recent trips from localStorage
+        const stored = JSON.parse(localStorage.getItem('trips') ?? '[]') as Array<{
+          id: string
+          plan: TripPlan
+        }>
+        const recent = stored.slice(-2).reverse().map((entry) => ({
+          id: entry.id,
+          title: `${entry.plan.params.destination || '여행'} 일정`,
+          destination: entry.plan.params.destination || '미정',
+          startDate: entry.plan.params.dates?.start ?? entry.plan.createdAt.split('T')[0],
+          endDate: entry.plan.params.dates?.end ?? entry.plan.createdAt.split('T')[0],
+        }))
+        setRecentTrips(recent)
+      })
+      .catch(() => {
+        setLoggedIn(false)
+        const stored = JSON.parse(localStorage.getItem('trips') ?? '[]') as Array<{
+          id: string
+          plan: TripPlan
+        }>
+        const recent = stored.slice(-2).reverse().map((entry) => ({
+          id: entry.id,
+          title: `${entry.plan.params.destination || '여행'} 일정`,
+          destination: entry.plan.params.destination || '미정',
+          startDate: entry.plan.params.dates?.start ?? entry.plan.createdAt.split('T')[0],
+          endDate: entry.plan.params.dates?.end ?? entry.plan.createdAt.split('T')[0],
+        }))
+        setRecentTrips(recent)
+      })
+  }, [])
 
   function toggleTheme(label: string) {
     setParams((prev) => {
@@ -83,7 +131,11 @@ export default function HomePage() {
       {/* Header */}
       <header className="bg-white border-b border-zinc-200 px-4 py-3 flex items-center justify-between">
         <span className="text-lg font-bold text-zinc-900">✈️ AI 여행 플래너</span>
-        <a href="/auth" className="text-sm text-blue-600 hover:underline font-medium">로그인</a>
+        {loggedIn ? (
+          <a href="/trips" className="text-sm text-blue-600 hover:underline font-medium">내 여행</a>
+        ) : (
+          <a href="/auth" className="text-sm text-blue-600 hover:underline font-medium">로그인</a>
+        )}
       </header>
 
       <main className="max-w-2xl mx-auto px-4 py-8">
@@ -92,6 +144,71 @@ export default function HomePage() {
           <h1 className="text-3xl font-bold text-zinc-900 mb-2">어디로 떠나고 싶으세요?</h1>
           <p className="text-sm text-zinc-500">AI가 최적 일정과 예약 가이드를 만들어드립니다</p>
         </div>
+
+        {/* My Trips Section */}
+        {loggedIn !== null && (
+          <div className="mb-6">
+            {recentTrips.length > 0 ? (
+              <div className="bg-white rounded-2xl border border-zinc-200 p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-sm font-semibold text-zinc-900">내 여행</h2>
+                  <button
+                    type="button"
+                    onClick={() => router.push('/trips')}
+                    className="text-xs text-blue-600 hover:underline"
+                  >
+                    전체 보기 →
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {recentTrips.map((trip) => (
+                    <button
+                      key={trip.id}
+                      type="button"
+                      onClick={() => router.push(`/trips/${trip.id}`)}
+                      className="w-full flex items-center justify-between rounded-xl border border-zinc-100 bg-zinc-50 px-3 py-2.5 hover:border-zinc-300 transition-colors text-left"
+                    >
+                      <div>
+                        <p className="text-sm font-medium text-zinc-900">{trip.title}</p>
+                        <p className="text-xs text-zinc-500 mt-0.5">
+                          {trip.startDate} ~ {trip.endDate}
+                        </p>
+                      </div>
+                      <span className="text-zinc-400 text-xs">›</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : loggedIn ? (
+              <div className="bg-white rounded-2xl border border-zinc-200 p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-zinc-900">내 여행</p>
+                  <p className="text-xs text-zinc-500 mt-0.5">완성한 일정이 여기에 저장됩니다</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => router.push('/trips')}
+                  className="text-xs text-blue-600 hover:underline flex-none"
+                >
+                  보러가기 →
+                </button>
+              </div>
+            ) : (
+              <div className="bg-blue-50 rounded-2xl border border-blue-100 p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-zinc-900">여행 기록을 저장하세요</p>
+                  <p className="text-xs text-zinc-500 mt-0.5">로그인하면 일정이 자동 저장됩니다</p>
+                </div>
+                <a
+                  href="/auth"
+                  className="flex-none px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  로그인
+                </a>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Structured Form */}
         <div className="bg-white rounded-2xl border border-zinc-200 p-5 mb-4 space-y-4">
@@ -217,7 +334,7 @@ export default function HomePage() {
           onClick={handleSubmit}
           className="w-full py-3.5 bg-blue-600 text-white rounded-xl text-base font-semibold hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
-          일정 만들기 →
+          {isParsingChat ? '분석 중...' : '일정 만들기 →'}
         </button>
 
         <p className="text-center text-xs text-zinc-400 mt-3">

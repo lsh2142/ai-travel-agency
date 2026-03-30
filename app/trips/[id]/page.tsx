@@ -67,39 +67,82 @@ export default function TripDetailPage() {
   const [trip, setTrip] = useState<Trip | null>(null)
 
   useEffect(() => {
-    const stored = JSON.parse(localStorage.getItem('trips') ?? '[]') as Array<{
-      id: string
-      plan: import('@/lib/types/travel').TripPlan
-    }>
-    const entry = stored.find((t) => t.id === tripId)
-    if (!entry) {
-      // Try sessionStorage (in-progress trip)
+    async function loadTrip() {
+      // 1. Try localStorage
+      const stored = JSON.parse(localStorage.getItem('trips') ?? '[]') as Array<{
+        id: string
+        plan: import('@/lib/types/travel').TripPlan
+      }>
+      const entry = stored.find((t) => t.id === tripId)
+      if (entry) {
+        const start = entry.plan.params.dates?.start ?? entry.plan.createdAt.split('T')[0]
+        const end = entry.plan.params.dates?.end ?? entry.plan.createdAt.split('T')[0]
+        setTrip({
+          id: entry.id,
+          title: `${entry.plan.params.destination || '여행'} 일정`,
+          destination: entry.plan.params.destination || '미정',
+          startDate: start,
+          endDate: end,
+          status: 'upcoming',
+          plan: entry.plan,
+        })
+        return
+      }
+
+      // 2. Try sessionStorage (in-progress trip)
       const planStored = sessionStorage.getItem('tripPlan')
       if (planStored) {
         const plan = JSON.parse(planStored) as import('@/lib/types/travel').TripPlan
-        setTrip({
-          id: tripId,
-          title: `${plan.params.destination || '여행'} 일정`,
-          destination: plan.params.destination || '미정',
-          startDate: plan.params.dates?.start ?? plan.createdAt.split('T')[0],
-          endDate: plan.params.dates?.end ?? plan.createdAt.split('T')[0],
-          status: 'upcoming',
-          plan,
-        })
-      } else {
-        router.replace('/trips')
+        if (plan.id === tripId || !tripId) {
+          setTrip({
+            id: tripId,
+            title: `${plan.params.destination || '여행'} 일정`,
+            destination: plan.params.destination || '미정',
+            startDate: plan.params.dates?.start ?? plan.createdAt.split('T')[0],
+            endDate: plan.params.dates?.end ?? plan.createdAt.split('T')[0],
+            status: 'upcoming',
+            plan,
+          })
+          return
+        }
       }
-      return
+
+      // 3. Try Supabase via API
+      try {
+        const res = await fetch('/api/trips')
+        if (res.ok) {
+          const rows = await res.json() as Array<{
+            id: string
+            destination: string
+            check_in: string
+            check_out: string
+            plan_data: import('@/lib/types/travel').TripPlan
+            created_at: string
+          }>
+          const row = rows.find((r) => r.id === tripId)
+          if (row) {
+            const start = row.check_in || row.created_at.split('T')[0]
+            const end = row.check_out || row.created_at.split('T')[0]
+            setTrip({
+              id: row.id,
+              title: `${row.destination || '여행'} 일정`,
+              destination: row.destination || '미정',
+              startDate: start,
+              endDate: end,
+              status: 'upcoming',
+              plan: row.plan_data,
+            })
+            return
+          }
+        }
+      } catch {
+        // network error or not logged in
+      }
+
+      router.replace('/trips')
     }
-    setTrip({
-      id: entry.id,
-      title: `${entry.plan.params.destination || '여행'} 일정`,
-      destination: entry.plan.params.destination || '미정',
-      startDate: entry.plan.params.dates?.start ?? entry.plan.createdAt.split('T')[0],
-      endDate: entry.plan.params.dates?.end ?? entry.plan.createdAt.split('T')[0],
-      status: 'upcoming',
-      plan: entry.plan,
-    })
+
+    loadTrip()
   }, [tripId, router])
 
   if (!trip) {

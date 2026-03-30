@@ -169,12 +169,20 @@ export default function PlanPage() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [selectedAlternatives, setSelectedAlternatives] = useState<Record<string, string>>({})
   const [error, setError] = useState<string | null>(null)
+  // 실제 스트리밍 진행 상태
+  const [streamedChars, setStreamedChars] = useState(0)
+  const [streamingPreview, setStreamingPreview] = useState('')
+  // RAF 기반 smooth progress (실제 값보다 느리게 따라가며 항상 움직이는 느낌)
+  const [displayProgress, setDisplayProgress] = useState(0)
+  const rafRef = useRef<number | null>(null)
 
   // 스트리밍 파서 상태 (ref: 렌더링 트리거 없음)
   const rawBuffer = useRef('')
   const consumedPos = useRef(0)
   // 누적된 모든 블록 (alt 연결에 재사용)
   const allBlocks = useRef<ParsedBlock[]>([])
+  // AbortController: StrictMode 이중 실행 및 언마운트 시 요청 취소
+  const abortRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
     const stored = sessionStorage.getItem('travelParams')
@@ -199,14 +207,24 @@ export default function PlanPage() {
     }
 
     startGeneration(p)
+
+    // 언마운트 or StrictMode 재실행 시 진행 중인 스트림 취소
+    return () => { abortRef.current?.abort() }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const startGeneration = useCallback(async (p: TravelParams) => {
+    // 이전 요청 취소 후 새 컨트롤러 생성
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+
     setIsGenerating(true)
     setError(null)
     setDays([])
     setBookingItems([])
+    setStreamedChars(0)
+    setStreamingPreview('')
     rawBuffer.current = ''
     consumedPos.current = 0
     allBlocks.current = []
@@ -216,6 +234,7 @@ export default function PlanPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(p),
+        signal: controller.signal,
       })
       if (!res.ok || !res.body) throw new Error('API 오류')
 
@@ -227,6 +246,18 @@ export default function PlanPage() {
         if (done) break
 
         rawBuffer.current += decoder.decode(value, { stream: true })
+
+        // 실제 스트리밍 진행 상태 업데이트 (매 청크마다)
+        const currentLen = rawBuffer.current.length
+        setStreamedChars(currentLen)
+        // 마지막 줄 중 의미있는 텍스트 발췌 (JSON 블록 제외, 일반 텍스트만)
+        const lastText = rawBuffer.current
+          .replace(/\[DAY:[\s\S]*?\]\]/g, '')
+          .replace(/\[ALTERNATIVES:[\s\S]*?\]\]/g, '')
+          .slice(-150)
+          .replace(/\n+/g, ' ')
+          .trim()
+        if (lastText.length > 10) setStreamingPreview(lastText)
 
         // 새로 완성된 블록 추출 — 스트리밍 중 즉시 파싱
         const { blocks, consumed } = extractBlocksFromBuffer(
@@ -289,9 +320,12 @@ export default function PlanPage() {
       }
       // 최신 days/bookingItems는 state 업데이트 후 effect로 저장
     } catch (e) {
+      // AbortError는 정상 취소 — 에러 처리 없이 종료
+      if (e instanceof Error && e.name === 'AbortError') return
       setError(e instanceof Error ? e.message : '일정 생성 중 오류가 발생했습니다')
     } finally {
-      setIsGenerating(false)
+      // 취소된 요청은 isGenerating을 건드리지 않음 (다음 요청이 관리)
+      if (!controller.signal.aborted) setIsGenerating(false)
     }
   }, [])
 
@@ -334,6 +368,45 @@ export default function PlanPage() {
     router.push('/plan/confirm')
   }
 
+  // 여행 일수 기반 예상 총 문자 수 (Claude 3일 여행 실측 ~25,000자 기준)
+  const tripDays = params?.dates
+    ? Math.max(1, Math.ceil(
+        (new Date(params.dates.end).getTime() - new Date(params.dates.start).getTime()) / (1000 * 60 * 60 * 24)
+      ) + 1)
+    : 3
+  const estimatedTotal = tripDays * 9000  // 실제 응답 기준 상향 (구 4500 → 9000)
+  const realProgress = isGenerating
+    ? Math.min(93, Math.round((streamedChars / estimatedTotal) * 100))
+    : days.length > 0 ? 100 : 0
+
+  // RAF smooth increment: realProgress를 향해 천천히 따라가되, 멈춰 보이지 않게 미세 증가
+  useEffect(() => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current)
+
+    if (!isGenerating && days.length === 0) {
+      setDisplayProgress(0)
+      return
+    }
+
+    const target = isGenerating ? realProgress : 100
+
+    const step = () => {
+      setDisplayProgress((prev) => {
+        if (prev >= target) return prev
+        // 목표까지 거리의 8%씩 이동 + 최소 0.3% 보장 → 항상 조금씩 움직임
+        const delta = Math.max(0.3, (target - prev) * 0.08)
+        const next = Math.min(target, prev + delta)
+        if (next < target) {
+          rafRef.current = requestAnimationFrame(step)
+        }
+        return Math.round(next * 10) / 10
+      })
+    }
+
+    rafRef.current = requestAnimationFrame(step)
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }
+  }, [realProgress, isGenerating, days.length])
+
   // 첫 Day가 도착하기 전: 전체 화면 로딩
   if (isGenerating && days.length === 0) {
     return (
@@ -344,9 +417,37 @@ export default function PlanPage() {
             {params?.destination ? `${params.destination} 일정 생성 중` : '일정 생성 중'}
           </h1>
           <div className="bg-zinc-200 rounded-full h-2 overflow-hidden">
-            <div className="bg-blue-600 h-2 rounded-full animate-pulse w-1/3" />
+            <div
+              className="bg-blue-600 h-2 rounded-full"
+              style={{ width: `${Math.max(3, displayProgress)}%` }}
+            />
           </div>
-          <p className="mt-3 text-sm text-zinc-500">첫 번째 일정을 준비하고 있어요...</p>
+          <p className="mt-2 text-xs text-zinc-400">{Math.round(displayProgress)}%</p>
+          {streamingPreview ? (
+            <p className="mt-3 text-xs text-zinc-500 line-clamp-2 text-left bg-zinc-100 rounded-lg px-3 py-2">
+              {streamingPreview}
+            </p>
+          ) : (
+            <p className="mt-3 text-sm text-zinc-500">일정을 준비하고 있어요...</p>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // 생성 완료 후 데이터 없음 (파싱 실패 등 silent failure) — 빈 화면 방지
+  if (!isGenerating && days.length === 0 && params && !error) {
+    return (
+      <div className="min-h-screen bg-zinc-50 flex items-center justify-center px-4">
+        <div className="text-center max-w-sm w-full">
+          <p className="text-4xl mb-3">😕</p>
+          <p className="text-sm text-zinc-600 mb-4">일정을 불러오지 못했어요</p>
+          <button
+            onClick={() => startGeneration(params)}
+            className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
+          >
+            다시 생성하기
+          </button>
         </div>
       </div>
     )
@@ -389,10 +490,13 @@ export default function PlanPage() {
         </div>
       </header>
 
-      {/* 스트리밍 중 상단 진행바 */}
-      {isGenerating && (
-        <div className="bg-zinc-200 h-0.5">
-          <div className="bg-blue-500 h-0.5 animate-pulse w-full" />
+      {/* 스트리밍 중 상단 진행바 — smooth displayProgress 반영 */}
+      {(isGenerating || displayProgress > 0) && (
+        <div className="bg-zinc-200 h-1">
+          <div
+            className="bg-blue-500 h-1"
+            style={{ width: `${displayProgress}%` }}
+          />
         </div>
       )}
 

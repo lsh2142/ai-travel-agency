@@ -2,17 +2,56 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import type { Trip } from '@/lib/types/travel'
+import type { Trip, TripPlan } from '@/lib/types/travel'
 
 type FilterTab = 'all' | 'upcoming' | 'completed'
 
-function TripSummaryCard({
-  trip,
-  onClick,
-}: {
-  trip: Trip
-  onClick: () => void
-}) {
+function tripStatus(startDate: string, endDate: string): Trip['status'] {
+  const now = Date.now()
+  const start = new Date(startDate).getTime()
+  const end = new Date(endDate).getTime()
+  if (now > end) return 'completed'
+  if (now >= start) return 'ongoing'
+  return 'upcoming'
+}
+
+function mapLocalEntry(entry: { id: string; plan: TripPlan }): Trip {
+  const start = entry.plan.params.dates?.start ?? entry.plan.createdAt.split('T')[0]
+  const end = entry.plan.params.dates?.end ?? entry.plan.createdAt.split('T')[0]
+  return {
+    id: entry.id,
+    title: `${entry.plan.params.destination || '여행'} 일정`,
+    destination: entry.plan.params.destination || '미정',
+    startDate: start,
+    endDate: end,
+    status: tripStatus(start, end),
+    plan: entry.plan,
+  }
+}
+
+function mapSupabaseRow(row: {
+  id: string
+  destination: string
+  check_in: string
+  check_out: string
+  guests: number
+  plan_data: TripPlan
+  created_at: string
+}): Trip {
+  const start = row.check_in || row.created_at.split('T')[0]
+  const end = row.check_out || row.created_at.split('T')[0]
+  return {
+    id: row.id,
+    title: `${row.destination || '여행'} 일정`,
+    destination: row.destination || '미정',
+    startDate: start,
+    endDate: end,
+    status: tripStatus(start, end),
+    plan: row.plan_data,
+  }
+}
+
+function TripSummaryCard({ trip, onClick }: { trip: Trip; onClick: () => void }) {
   const statusLabel: Record<Trip['status'], string> = {
     upcoming: '예정',
     ongoing: '진행 중',
@@ -50,38 +89,62 @@ export default function TripsPage() {
   const router = useRouter()
   const [trips, setTrips] = useState<Trip[]>([])
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all')
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Load trips from localStorage (demo)
-    const stored = JSON.parse(localStorage.getItem('trips') ?? '[]') as Array<{
-      id: string
-      plan: import('@/lib/types/travel').TripPlan
-    }>
+    async function loadTrips() {
+      // 1. Load from localStorage
+      const localRaw = JSON.parse(localStorage.getItem('trips') ?? '[]') as Array<{
+        id: string
+        plan: TripPlan
+      }>
+      const localTrips = localRaw.map(mapLocalEntry)
+      const localIds = new Set(localTrips.map((t) => t.id))
 
-    const mapped: Trip[] = stored.map((entry) => ({
-      id: entry.id,
-      title: `${entry.plan.params.destination || '여행'} 일정`,
-      destination: entry.plan.params.destination || '미정',
-      startDate: entry.plan.params.dates?.start ?? entry.plan.createdAt.split('T')[0],
-      endDate: entry.plan.params.dates?.end ?? entry.plan.createdAt.split('T')[0],
-      status: 'upcoming' as const,
-      plan: entry.plan,
-    }))
+      // 2. Load from Supabase (if logged in)
+      let supabaseTrips: Trip[] = []
+      try {
+        const res = await fetch('/api/trips')
+        if (res.ok) {
+          const rows = await res.json() as Parameters<typeof mapSupabaseRow>[0][]
+          supabaseTrips = rows.map(mapSupabaseRow)
+        }
+      } catch {
+        // not logged in or network error
+      }
 
-    setTrips(mapped)
+      // 3. Merge: Supabase is source of truth; append local-only entries
+      const supabaseIds = new Set(supabaseTrips.map((t) => t.id))
+      const localOnly = localTrips.filter((t) => !supabaseIds.has(t.id))
+      const merged = [...supabaseTrips, ...localOnly]
+
+      // Sync any supabase trips back into localStorage so detail page can find them
+      const updatedLocal = [
+        ...localRaw.filter((l) => !supabaseIds.has(l.id)),
+        ...supabaseTrips
+          .filter((t) => !localIds.has(t.id))
+          .map((t) => ({ id: t.id, plan: t.plan })),
+      ]
+      localStorage.setItem('trips', JSON.stringify(updatedLocal))
+
+      setTrips(merged)
+      setLoading(false)
+    }
+
+    loadTrips()
   }, [])
-
-  const filtered = trips.filter((t) => {
-    if (activeFilter === 'all') return true
-    if (activeFilter === 'upcoming') return t.status === 'upcoming' || t.status === 'ongoing'
-    return t.status === 'completed'
-  })
 
   const tabs: { id: FilterTab; label: string }[] = [
     { id: 'all', label: '전체' },
     { id: 'upcoming', label: '예정' },
     { id: 'completed', label: '완료' },
   ]
+
+  const filtered = trips.filter((t) => {
+    if (activeFilter === 'all') return true
+    if (activeFilter === 'upcoming') return t.status === 'upcoming' || t.status === 'ongoing'
+    return t.status === 'completed'
+  })
 
   return (
     <div className="min-h-screen bg-zinc-50">
@@ -116,7 +179,11 @@ export default function TripsPage() {
         </div>
 
         {/* Trip List */}
-        {filtered.length === 0 ? (
+        {loading ? (
+          <div className="text-center py-16">
+            <p className="text-sm text-zinc-400">여행 목록을 불러오는 중...</p>
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="text-center py-16">
             <p className="text-4xl mb-3">🗺️</p>
             <p className="text-base font-semibold text-zinc-900">여행이 없습니다</p>

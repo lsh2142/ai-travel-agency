@@ -8,6 +8,7 @@ import {
   applyBlocksToPlan,
   type ParsedBlock,
 } from '@/lib/ai/travel-itinerary-agent'
+import { MOCK_PLAN } from '@/lib/mock/plan-mock'
 
 function BookingStatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
@@ -177,6 +178,16 @@ export default function PlanPage() {
   const allBlocks = useRef<ParsedBlock[]>([])
 
   useEffect(() => {
+    // ?mock=1 로 접근하면 API 호출 없이 목업 데이터 직접 주입
+    const isMock = new URLSearchParams(window.location.search).get('mock') === '1'
+    if (isMock) {
+      setParams(MOCK_PLAN.params)
+      setDays(MOCK_PLAN.days)
+      setBookingItems(MOCK_PLAN.bookingItems)
+      setIsGenerating(false)
+      return
+    }
+
     const stored = sessionStorage.getItem('travelParams')
     if (!stored) { router.replace('/'); return }
     const p = JSON.parse(stored) as TravelParams

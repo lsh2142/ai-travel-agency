@@ -6,6 +6,7 @@ export const REFRESH_TOKEN_COOKIE = 'sb-refresh-token';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
+// Server-side: these are validated at runtime when createServerClient is called
 
 /** Server-side Supabase client that authenticates as the given user */
 export function createServerClient(accessToken: string) {

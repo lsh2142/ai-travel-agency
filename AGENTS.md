@@ -114,7 +114,30 @@ This version has breaking changes — APIs, conventions, and file structure may 
 |---------|------|------|------|--------|
 | 🔴 P1 | UI/UX 5종 개선 | 디자이너 | ✅ 완료 | — (feature/ui-ux-improvements 머지됨) |
 | 🔴 P1 | 대시보드 git 기반 동적 데이터 | 개발자 | ✅ 완료 | — |
+| 🔴 P1 | Streamlit 실시간 개발 전광판 | 개발자 | ✅ 완료 | — (feature/dashboard-streamlit 머지됨) |
+| 🔴 P1 | 미인증 사용자 /auth 리다이렉트 | 개발자 | ✅ 완료 | — (wizardly-mendel 머지됨) |
 | 🟡 P2 | SerpAPI 실제 키 환경변수 주입 | — | ⏳ 대기 | 실제 SerpAPI Key 미제공 |
 | 🟡 P2 | Supabase 003_dashboard.sql 마이그레이션 적용 | CTO | ⏳ 대기 | — |
 | 🟡 P2 | Vercel 배포 | 형상관리 | ⏳ 대기 | 환경변수 설정 필요 |
 | 🟢 P3 | Redis Cloud 설정 | CTO | ⏳ 대기 | — |
+| 🟢 P3 | 일회성 worktree 정리 (10개) | PM | 🔧 진행 중 | cleanup-worktrees.sh 수동 실행 필요 |
+
+---
+
+## 🗑️ 일회성 에이전트 — 2차 정리 대상
+
+> 완료된 500 에러 대응 + UX 검증 일회성 세션 10개 (2026-03-30)
+> **정리 실행:** `bash /Users/claw/ai-travel-agent/cleanup-worktrees.sh`
+
+| 세션 ID | worktree | 작업 설명 | 정리 상태 |
+|---------|---------|----------|-----------|
+| `local_a37ca147` | `hungry-ellis` | UX 검증 — 권한우회 headless 모드 | 🔧 스크립트 대기 |
+| `local_ec041759` | `compassionate-colden` | 서버 500 에러 진단 및 수정 | 🔧 스크립트 대기 |
+| `local_db1f8e27` | `great-hugle` | 500 에러 빠른 수정 (서버 재시작) | 🔧 스크립트 대기 |
+| `local_68b7e04f` | `suspicious-jones` | 앱 에러 원인 파악 — 소스 직접 분석 | 🔧 스크립트 대기 |
+| `local_e1fdffc0` | `busy-murdock` | 빠른 500 원인 파악 — 파일 읽기만 | 🔧 스크립트 대기 |
+| `local_4d38b6dc` | `condescending-jackson` | 500 에러 실제 로그 확인 및 수정 | 🔧 스크립트 대기 |
+| `local_3e3e914f` | `bold-solomon` | UX 검증 — 권한우회 최종 실행 | 🔧 스크립트 대기 |
+| `local_e4f2522b` | `dreamy-borg` | UX 검증 — curl 기반 즉시 실행 | 🔧 스크립트 대기 |
+| `local_a6681e1a` | `cool-mcclintock` | UX 검증 — Playwright 자동 테스트 | 🔧 스크립트 대기 |
+| `local_ed58c086` | `nostalgic-gagarin` | UX 소스코드 분석 — 즉시 실행 | 🔧 스크립트 대기 |

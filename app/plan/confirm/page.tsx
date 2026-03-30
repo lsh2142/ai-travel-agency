@@ -20,6 +20,12 @@ function BookingStatusBadge({ status }: { status: string }) {
   )
 }
 
+function extractPriceNumber(priceStr: string): number {
+  const cleaned = priceStr.replace(/,/g, '').replace(/\s/g, '')
+  const m = cleaned.match(/(\d+)/)
+  return m ? parseInt(m[1]) : 0
+}
+
 export default function PlanConfirmPage() {
   const router = useRouter()
   const [plan, setPlan] = useState<TripPlan | null>(null)
@@ -48,6 +54,16 @@ export default function PlanConfirmPage() {
   const { params, days, bookingItems } = plan
   const startDate = params.dates?.start ?? days[0]?.date ?? ''
   const endDate = params.dates?.end ?? days[days.length - 1]?.date ?? ''
+
+  let totalBudget = 0
+  days.forEach((day) => {
+    day.items.forEach((item) => {
+      const alt = item.selectedAlternativeId
+        ? item.alternatives.find((a) => a.id === item.selectedAlternativeId)
+        : item.alternatives[0]
+      if (alt?.price) totalBudget += extractPriceNumber(alt.price)
+    })
+  })
 
   return (
     <div className="min-h-screen bg-zinc-50 pb-24">
@@ -78,6 +94,11 @@ export default function PlanConfirmPage() {
             )}
           </div>
           <p className="text-xs text-zinc-400 mt-2">{days.length}일 여행</p>
+          {totalBudget > 0 && (
+            <p className="text-sm font-semibold text-blue-600 mt-2">
+              💰 총 예산: ₩{totalBudget.toLocaleString('ko-KR')} <span className="text-xs font-normal text-zinc-400">(대안 기준 합산)</span>
+            </p>
+          )}
         </div>
 
         {/* Itinerary Timeline */}
@@ -99,15 +120,16 @@ export default function PlanConfirmPage() {
                   const selectedAlt = item.selectedAlternativeId
                     ? item.alternatives.find((a) => a.id === item.selectedAlternativeId)
                     : null
+                  const displayAlt = selectedAlt ?? item.alternatives[0] ?? null
                   return (
                     <div key={idx} className="flex items-start gap-2">
                       <span className="text-xs text-zinc-400 w-10 flex-none">{item.time}</span>
                       <div className="flex-1">
                         <p className="text-sm text-zinc-800">
-                          {selectedAlt ? selectedAlt.name : item.title}
+                          {displayAlt ? displayAlt.name : item.title}
                         </p>
-                        {selectedAlt && (
-                          <p className="text-xs text-blue-600">{selectedAlt.price}</p>
+                        {displayAlt?.price && (
+                          <p className="text-xs text-emerald-600">{displayAlt.price}</p>
                         )}
                       </div>
                     </div>

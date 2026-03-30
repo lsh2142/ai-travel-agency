@@ -105,7 +105,11 @@ function DayItemCard({
             )}
           </div>
         </div>
-        <BookingStatusBadge status="pending" />
+        {(item.type === 'accommodation' ||
+          (item.type === 'activity' && !!item.bookingUrl &&
+            (item.bookingUrl.includes('klook') || item.bookingUrl.includes('viator')))) && (
+          <BookingStatusBadge status="pending" />
+        )}
       </div>
       {item.alternatives.length > 0 ? (
         <AlternativeSelector

@@ -352,11 +352,13 @@ export default function PlanPage() {
     )
   }
 
-  if (!isGenerating && days.length === 0 && error) {
+  if (!isGenerating && days.length === 0 && params) {
     return (
       <div className="min-h-screen bg-zinc-50 flex items-center justify-center px-4">
         <div className="bg-red-50 border border-red-200 rounded-xl p-6 max-w-sm w-full">
-          <p className="text-sm text-red-700 mb-3">{error}</p>
+          <p className="text-sm text-red-700 mb-3">
+            {error || '일정 데이터를 불러오지 못했습니다. 다시 시도해 주세요.'}
+          </p>
           <button
             onClick={() => params && startGeneration(params)}
             className="text-sm text-blue-600 hover:underline"

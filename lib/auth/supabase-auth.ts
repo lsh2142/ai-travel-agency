@@ -23,7 +23,7 @@ export async function getServerSession() {
 
   try {
     const client = createServerClient(accessToken);
-    const { data: { user }, error } = await client.auth.getUser();
+    const { data: { user }, error } = await client.auth.getUser(accessToken);
     if (error || !user) return null;
     return { user, accessToken };
   } catch {

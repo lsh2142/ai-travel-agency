@@ -15,18 +15,22 @@ export default function AuthPage() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [signupDone, setSignupDone] = useState(false);
+  const [authChecking, setAuthChecking] = useState(true);
 
   useEffect(() => {
-    // 이미 로그인된 경우 홈으로 리다이렉트
+    // 이미 로그인된 경우 /plan 으로 리다이렉트 (비로그인 시 그대로 유지)
     fetch('/api/auth/me')
       .then((r) => r.json())
       .then(({ user }: { user: { id: string; email: string } | null }) => {
         if (user) {
-          router.push('/');
+          router.replace('/plan');
+        } else {
+          setAuthChecking(false);
         }
       })
       .catch(() => {
-        // 에러 무시 (미로그인 상태)
+        // 에러 무시 (미로그인 상태로 처리)
+        setAuthChecking(false);
       });
   }, [router]);
 
@@ -58,7 +62,7 @@ export default function AuthPage() {
         }),
       });
 
-      router.push('/');
+      router.replace('/plan');
     } catch (err) {
       setError(err instanceof Error ? err.message : '오류가 발생했습니다.');
     } finally {
@@ -83,6 +87,15 @@ export default function AuthPage() {
       setGoogleLoading(false);
     }
   };
+
+  // 인증 상태 확인 중 — 화면 깜빡임 방지
+  if (authChecking) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   if (signupDone) {
     return (

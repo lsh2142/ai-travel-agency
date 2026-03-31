@@ -23,8 +23,12 @@ export async function getServerSession() {
   if (!accessToken) return null;
 
   try {
-    const client = createServerClient(accessToken);
-    const { data: { user }, error } = await client.auth.getUser(accessToken);
+    // auth 검증 전용 클라이언트 — global Authorization 헤더 없이 getUser(jwt) 사용
+    // (global header는 DB 쿼리용. auth 검증에 섞으면 요청이 중복될 수 있음)
+    const authClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: false },
+    });
+    const { data: { user }, error } = await authClient.auth.getUser(accessToken);
     if (error || !user) return null;
     return { user, accessToken };
   } catch {

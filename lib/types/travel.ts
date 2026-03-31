@@ -27,6 +27,8 @@ export interface BookingItem {
   guide: string[]
   status: BookingStatus
   isCompleted: boolean
+  price?: string
+  alternatives?: Alternative[]
 }
 
 export interface TripDay {

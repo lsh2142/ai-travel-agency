@@ -47,7 +47,12 @@ export default function HomePage() {
     fetch('/api/auth/me')
       .then((r) => r.json())
       .then(({ user }: { user: { id: string; email: string } | null }) => {
-        setLoggedIn(!!user)
+        if (!user) {
+          // 미인증 사용자: 로그인 페이지로 리다이렉트
+          router.push('/auth')
+          return
+        }
+        setLoggedIn(true)
 
         // Load up to 2 most recent trips from localStorage
         const stored = JSON.parse(localStorage.getItem('trips') ?? '[]') as Array<{
@@ -64,21 +69,10 @@ export default function HomePage() {
         setRecentTrips(recent)
       })
       .catch(() => {
-        setLoggedIn(false)
-        const stored = JSON.parse(localStorage.getItem('trips') ?? '[]') as Array<{
-          id: string
-          plan: TripPlan
-        }>
-        const recent = stored.slice(-2).reverse().map((entry) => ({
-          id: entry.id,
-          title: `${entry.plan.params.destination || '여행'} 일정`,
-          destination: entry.plan.params.destination || '미정',
-          startDate: entry.plan.params.dates?.start ?? entry.plan.createdAt.split('T')[0],
-          endDate: entry.plan.params.dates?.end ?? entry.plan.createdAt.split('T')[0],
-        }))
-        setRecentTrips(recent)
+        // 에러 발생: 미인증 상태로 처리하고 리다이렉트
+        router.push('/auth')
       })
-  }, [])
+  }, [router])
 
   function toggleTheme(label: string) {
     setParams((prev) => {

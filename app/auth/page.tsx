@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/db/supabase';
 
@@ -15,6 +15,20 @@ export default function AuthPage() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [signupDone, setSignupDone] = useState(false);
+
+  useEffect(() => {
+    // 이미 로그인된 경우 홈으로 리다이렉트
+    fetch('/api/auth/me')
+      .then((r) => r.json())
+      .then(({ user }: { user: { id: string; email: string } | null }) => {
+        if (user) {
+          router.push('/');
+        }
+      })
+      .catch(() => {
+        // 에러 무시 (미로그인 상태)
+      });
+  }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -2,7 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import type { TripPlan, BookingItem } from '@/lib/types/travel'
+import type { TripPlan, BookingItem, Alternative } from '@/lib/types/travel'
+import { CheaperAlternativesPanel } from '@/components/CheaperAlternativesPanel'
+
+type MonitorStatus = 'idle' | 'loading' | 'registered' | 'error'
 
 function BookingStatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
@@ -25,13 +28,20 @@ function ManualBookingCard({
   isCompleted,
   onComplete,
   onSkip,
+  onSwapAlternative,
+  planParams,
 }: {
   item: BookingItem
   isCompleted: boolean
   onComplete: () => void
   onSkip: () => void
+  onSwapAlternative: (id: string, alt: Alternative) => void
+  planParams?: TripPlan['params']
 }) {
   const [expanded, setExpanded] = useState(true)
+  const [currentItem, setCurrentItem] = useState<BookingItem>(item)
+  const [monitorStatus, setMonitorStatus] = useState<MonitorStatus>('idle')
+
   const typeIcon: Record<string, string> = {
     flight: '✈️',
     accommodation: '🏨',
@@ -39,14 +49,72 @@ function ManualBookingCard({
     transport: '🚆',
   }
 
+  function handleSwapAlternative(alt: Alternative) {
+    const updated: BookingItem = {
+      ...currentItem,
+      name: alt.name,
+      bookingUrl: alt.bookingUrl,
+      price: alt.price,
+    }
+    setCurrentItem(updated)
+    onSwapAlternative(item.id, alt)
+  }
+
+  function detectSite(url: string): string {
+    if (url.includes('jalan.net')) return 'jalan'
+    if (url.includes('rakuten')) return 'rakuten'
+    if (url.includes('hitou')) return 'hitou'
+    return 'jalan' // default fallback
+  }
+
+  async function handleMonitorRegister() {
+    if (monitorStatus === 'registered' || monitorStatus === 'loading') return
+    setMonitorStatus('loading')
+    try {
+      const res = await fetch('/api/monitor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accommodationId: currentItem.id,
+          url: currentItem.bookingUrl && currentItem.bookingUrl !== '#'
+            ? currentItem.bookingUrl
+            : `https://www.jalan.net/search/?keyword=${encodeURIComponent(currentItem.name)}`,
+          site: detectSite(currentItem.bookingUrl ?? ''),
+          checkIn: planParams?.dates?.start ?? '',
+          checkOut: planParams?.dates?.end ?? '',
+          guests: planParams?.people ?? 1,
+          accommodationName: currentItem.name,
+        }),
+      })
+      if (res.ok) {
+        setMonitorStatus('registered')
+      } else if (res.status === 401) {
+        setMonitorStatus('error')
+        alert('로그인이 필요합니다. 우측 상단에서 로그인해 주세요.')
+      } else {
+        setMonitorStatus('error')
+      }
+    } catch {
+      setMonitorStatus('error')
+    }
+  }
+
+  function extractPriceNumber(priceStr: string): number {
+    const cleaned = priceStr.replace(/,/g, '').replace(/\s/g, '')
+    const m = cleaned.match(/(\d+)/)
+    return m ? parseInt(m[1]) : 0
+  }
+
+  const currentPrice = currentItem.price ? extractPriceNumber(currentItem.price) : 0
+
   return (
     <div className={`bg-white rounded-2xl border p-4 transition-all ${isCompleted ? 'border-emerald-300 opacity-70' : 'border-zinc-200'}`}>
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-start gap-2">
-          <span className="text-lg">{typeIcon[item.type] ?? '📋'}</span>
+          <span className="text-lg">{typeIcon[currentItem.type] ?? '📋'}</span>
           <div>
-            <p className="text-sm font-semibold text-zinc-900">{item.name}</p>
-            <BookingStatusBadge status={isCompleted ? 'booked' : item.status} />
+            <p className="text-sm font-semibold text-zinc-900">{currentItem.name}</p>
+            <BookingStatusBadge status={isCompleted ? 'booked' : currentItem.status} />
           </div>
         </div>
         <button
@@ -70,9 +138,9 @@ function ManualBookingCard({
             ))}
           </div>
 
-          {item.bookingUrl && item.bookingUrl !== '#' && (
+          {currentItem.bookingUrl && currentItem.bookingUrl !== '#' && (
             <a
-              href={item.bookingUrl}
+              href={currentItem.bookingUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="mt-3 flex items-center justify-center gap-1 w-full py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
@@ -81,13 +149,45 @@ function ManualBookingCard({
             </a>
           )}
 
-          {item.type === 'accommodation' && (
-            <button
-              type="button"
-              className="mt-2 w-full py-2 border border-blue-300 text-blue-600 rounded-lg text-sm hover:bg-blue-50 transition-colors"
-            >
-              🔔 빈방 모니터링 등록
-            </button>
+          {currentItem.type === 'accommodation' && (
+            <div className="mt-2">
+              <button
+                type="button"
+                onClick={handleMonitorRegister}
+                disabled={monitorStatus === 'loading' || monitorStatus === 'registered'}
+                className={`w-full py-2 rounded-lg text-sm transition-colors ${
+                  monitorStatus === 'registered'
+                    ? 'bg-blue-50 border border-blue-200 text-blue-500 cursor-default'
+                    : monitorStatus === 'error'
+                    ? 'border border-red-300 text-red-600 hover:bg-red-50'
+                    : monitorStatus === 'loading'
+                    ? 'border border-blue-200 text-blue-400 cursor-wait'
+                    : 'border border-blue-300 text-blue-600 hover:bg-blue-50'
+                }`}
+              >
+                {monitorStatus === 'registered'
+                  ? '✅ 모니터링 등록 완료'
+                  : monitorStatus === 'loading'
+                  ? '⏳ 등록 중...'
+                  : monitorStatus === 'error'
+                  ? '❌ 등록 실패 — 다시 시도'
+                  : '🔔 빈방 모니터링 등록'}
+              </button>
+              {monitorStatus === 'registered' && (
+                <p className="mt-1 text-xs text-blue-500 text-center">
+                  빈방 발생 시 텔레그램으로 알림을 보내드립니다
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Cheaper Alternatives Panel */}
+          {currentItem.type === 'accommodation' && currentItem.alternatives && currentPrice > 0 && (
+            <CheaperAlternativesPanel
+              currentPrice={currentPrice}
+              alternatives={currentItem.alternatives}
+              onSwitch={handleSwapAlternative}
+            />
           )}
 
           <div className="mt-3 flex gap-2">
@@ -116,6 +216,12 @@ function ManualBookingCard({
   )
 }
 
+function extractPriceNumber(priceStr: string): number {
+  const cleaned = priceStr.replace(/,/g, '').replace(/\s/g, '')
+  const m = cleaned.match(/(\d+)/)
+  return m ? parseInt(m[1]) : 0
+}
+
 export default function BookingPage() {
   const router = useRouter()
   const [plan, setPlan] = useState<TripPlan | null>(null)
@@ -139,20 +245,29 @@ export default function BookingPage() {
         : p.days.flatMap((day) =>
             day.items
               .filter((item) => ['accommodation', 'activity', 'transport'].includes(item.type))
-              .map((item, idx) => ({
-                id: `${day.dayNumber}_${idx}`,
-                type: item.type === 'note' ? 'activity' : (item.type as BookingItem['type']),
-                name: item.title,
-                bookingUrl: item.bookingUrl ?? '#',
-                guide: [
-                  '아래 링크를 탭하세요',
-                  '날짜·인원을 확인하세요',
-                  '결제를 진행하세요',
-                  '예약 확인 번호를 저장하세요',
-                ],
-                status: 'pending' as const,
-                isCompleted: false,
-              }))
+              .map((item, idx) => {
+                // Get selected alternative or first alternative for price
+                const selectedAlt = item.selectedAlternativeId
+                  ? item.alternatives.find((a) => a.id === item.selectedAlternativeId)
+                  : item.alternatives[0]
+
+                return {
+                  id: `${day.dayNumber}_${idx}`,
+                  type: item.type === 'note' ? 'activity' : (item.type as BookingItem['type']),
+                  name: item.title,
+                  bookingUrl: item.bookingUrl ?? '#',
+                  guide: [
+                    '아래 링크를 탭하세요',
+                    '날짜·인원을 확인하세요',
+                    '결제를 진행하세요',
+                    '예약 확인 번호를 저장하세요',
+                  ],
+                  status: 'pending' as const,
+                  isCompleted: false,
+                  price: selectedAlt?.price ?? undefined,
+                  alternatives: item.alternatives,
+                } as BookingItem
+              })
           )
 
     setBookingItems(items)
@@ -164,6 +279,21 @@ export default function BookingPage() {
 
   function handleSkip(id: string) {
     setSkippedIds((prev) => new Set([...prev, id]))
+  }
+
+  function handleSwapAlternative(id: string, alt: Alternative) {
+    setBookingItems((prev) =>
+      prev.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              name: alt.name,
+              bookingUrl: alt.bookingUrl,
+              price: alt.price,
+            }
+          : item
+      )
+    )
   }
 
   const processedCount = completedIds.size + skippedIds.size
@@ -253,6 +383,8 @@ export default function BookingPage() {
             isCompleted={completedIds.has(item.id) || skippedIds.has(item.id)}
             onComplete={() => handleComplete(item.id)}
             onSkip={() => handleSkip(item.id)}
+            onSwapAlternative={handleSwapAlternative}
+            planParams={plan?.params}
           />
         ))}
 

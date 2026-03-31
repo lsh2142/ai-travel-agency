@@ -3,6 +3,7 @@ import { Inter, Geist } from 'next/font/google';
 import './globals.css';
 import { cn } from "@/lib/utils";
 import HomeButton from '@/components/HomeButton';
+import UserMenu from '@/components/UserMenu';
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
@@ -17,7 +18,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ko" className={cn("font-sans", geist.variable)}>
       <body className={inter.className}>
-        <HomeButton />
+        <header className="flex justify-between items-center px-6 py-4 border-b border-gray-200 bg-white">
+          <HomeButton />
+          <UserMenu />
+        </header>
         {children}
       </body>
     </html>

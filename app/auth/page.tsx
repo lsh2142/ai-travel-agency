@@ -30,7 +30,6 @@ export default function AuthPage() {
         }
       } catch (error) {
         // 에러 무시 (미로그인 상태로 처리)
-        console.error('Auth check failed:', error);
         setAuthChecking(false);
       }
     };

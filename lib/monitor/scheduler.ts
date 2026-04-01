@@ -52,7 +52,6 @@ export class MonitorScheduler {
             },
           });
           this.isAvailable = true;
-          console.info('[MonitorScheduler] Redis connected successfully');
         })
         .catch((err: Error) => {
           console.warn('[MonitorScheduler] Redis connection failed, scheduler disabled:', err.message);

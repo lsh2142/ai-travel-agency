@@ -23,7 +23,6 @@ export default function UserMenu() {
         const data = await res.json() as { user: User | null };
         setUser(data.user);
       } catch (error) {
-        console.error('Failed to fetch user:', error);
         setUser(null);
       } finally {
         setIsLoading(false);
@@ -54,7 +53,7 @@ export default function UserMenu() {
       setIsOpen(false);
       router.push('/auth');
     } catch (error) {
-      console.error('Logout failed:', error);
+      // Silently handle logout failure
     }
   };
 

@@ -24,7 +24,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ flights, provider: flightProvider.name });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Flight search failed';
-    console.error('[/api/flights]', message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

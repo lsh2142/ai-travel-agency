@@ -20,7 +20,6 @@ export async function GET() {
     const jobs = dbJobs.length > 0 ? dbJobs : schedulerJobs;
     return NextResponse.json({ jobs });
   } catch (error) {
-    console.error('Monitor GET error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -87,7 +86,6 @@ export async function POST(request: NextRequest) {
       message: '모니터링 작업이 등록되었습니다. 빈방 발생 시 텔레그램으로 알림을 보내드립니다.',
     });
   } catch (error) {
-    console.error('Monitor POST error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -105,7 +103,6 @@ export async function DELETE(request: NextRequest) {
     ]);
     return NextResponse.json({ success: true, message: '모니터링이 중단되었습니다.' });
   } catch (error) {
-    console.error('Monitor DELETE error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

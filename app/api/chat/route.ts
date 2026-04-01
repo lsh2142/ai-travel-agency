@@ -47,7 +47,6 @@ export async function POST(request: NextRequest) {
         }
         controller.close();
       } catch (error) {
-        console.error('Chat stream error:', error);
         const errorMessage = error instanceof Error ? error.message : 'Internal server error';
         controller.enqueue(encoder.encode(`\n[ERROR]: ${errorMessage}`));
         controller.close();
@@ -61,9 +60,9 @@ export async function POST(request: NextRequest) {
           { role: 'user', content: userMessage, timestamp: new Date() },
           { role: 'assistant', content: assistantReply, timestamp: new Date() },
         ];
-        await db.saveChatSession(sessionId, newMessages).catch((err) =>
-          console.error('Failed to save chat session:', err)
-        );
+        await db.saveChatSession(sessionId, newMessages).catch(() => {
+          // Silently ignore save failures
+        });
       }
     },
   });

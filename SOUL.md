@@ -5,6 +5,38 @@
 
 ---
 
+## 업무 시작 프로토콜 (필수)
+
+모든 작업 사이클 시작 전 반드시 아래 순서를 따른다.
+
+### Step 1: PM 에이전트에 세션 현황 확인 요청
+- PM 에이전트 세션: local_e61f1895-84c3-4485-9999-b3dfcc6d6f17
+- PM 에이전트가 list_sessions로 각 에이전트 생존 여부 확인
+- 살아있는 세션 ID 확인 후 해당 세션으로 진행
+
+### Step 2: 살아있는 세션 재사용 원칙
+- 에이전트 세션이 idle 상태이면 → send_message로 재사용 (새 세션 불필요)
+- 세션이 없거나 비활성이면 → start_code_task로 새 세션 생성
+- 새 세션 생성 시 PM 에이전트에게 세션 ID 업데이트 요청
+
+### Step 3: 작업 완료 후 PM 에이전트에 결과 보고
+- 완료된 세션 ID, 작업 내용, 다음 단계 전달
+- PM이 #ops-dashboard에 현황 업데이트
+
+### 에이전트 채널 매핑 (최신)
+| 에이전트 | 채널 | 채널 ID |
+|---------|------|---------|
+| CEO | #agent-ceo | C0APY8MP26S |
+| 코딩 | #agent-coding | C0APWTWS05T |
+| 디자이너 | #agent-design | C0AQ5MLCKD3 |
+| 검증(QA) | #agent-qa | C0AQUJQP9EC |
+| 형상관리 | #agent-git | C0AQUJSEPFA |
+| 여행일정 | #agent-travel | C0AQ3U7GFGC |
+| PM | #agent-pm | C0AR3CF86QY |
+| 전체 대시보드 | #ops-dashboard | C0AQD7NBASD |
+
+---
+
 ## 공통 원칙
 
 1. **코드 손실 방지 최우선** — 어떤 정리 작업도 활성 세션/작업 확인 전에는 삭제하지 않는다
@@ -30,9 +62,11 @@
 | `#ops-dashboard` | `C0AQD7NBASD` | 전체 현황 — 주요 마일스톤 완료 요약만 |
 | `#agent-ceo` | `C0APY8MP26S` | CEO 전용 — 지시 내용 및 의사결정 보고 |
 | `#agent-coding` | `C0APWTWS05T` | 코딩 에이전트 전용 — 구현 시작/완료/오류 |
+| `#agent-design` | `C0AQ5MLCKD3` | 디자이너 에이전트 전용 — 디자인 시작/완료/오류 |
 | `#agent-qa` | `C0AQUJQP9EC` | 검증 에이전트 전용 — 검증 시작/완료/실패 |
 | `#agent-git` | `C0AQUJSEPFA` | 형상관리 에이전트 전용 — 커밋/머지/push |
 | `#agent-travel` | `C0AQ3U7GFGC` | 여행일정 에이전트 전용 — 일정 생성/검증 |
+| `#agent-pm` | `C0AR3CF86QY` | PM 에이전트 전용 — 작업 배분/추적/보고 |
 
 ### 에이전트별 보고 채널
 
@@ -40,11 +74,11 @@
 |---------|-------------|-----------------|------------|
 | CEO 에이전트 | `#agent-ceo` (`C0APY8MP26S`) | `#ops-dashboard` (`C0AQD7NBASD`) | `[CEO 에이전트]` |
 | CTO 에이전트 | `#agent-ceo` (`C0APY8MP26S`) | `#ops-dashboard` (`C0AQD7NBASD`) | `[CTO 에이전트]` |
-| 디자이너 에이전트 | `#agent-coding` (`C0APWTWS05T`) | `#ops-dashboard` (`C0AQD7NBASD`) | `[디자이너 에이전트]` |
+| 디자이너 에이전트 | `#agent-design` (`C0AQ5MLCKD3`) | `#ops-dashboard` (`C0AQD7NBASD`) | `[디자이너 에이전트]` |
 | 코딩 에이전트 | `#agent-coding` (`C0APWTWS05T`) | `#ops-dashboard` (`C0AQD7NBASD`) | `[코딩 에이전트]` |
 | 검증 에이전트 | `#agent-qa` (`C0AQUJQP9EC`) | — | `[검증 에이전트]` |
 | 형상관리 에이전트 | `#agent-git` (`C0AQUJSEPFA`) | `#ops-dashboard` (`C0AQD7NBASD`) | `[형상관리 에이전트]` |
-| PM 에이전트 | `#agent-ceo` (`C0APY8MP26S`) | `#ops-dashboard` (`C0AQD7NBASD`) | `[PM 에이전트]` |
+| PM 에이전트 | `#agent-pm` (`C0AR3CF86QY`) | `#ops-dashboard` (`C0AQD7NBASD`) | `[PM 에이전트]` |
 | 여행일정 에이전트 | `#agent-travel` (`C0AQ3U7GFGC`) | `#ops-dashboard` (`C0AQD7NBASD`) | `[여행일정 에이전트]` |
 
 ### 보고 형식
@@ -75,11 +109,13 @@
 | 채널 | 채널 ID | 담당 에이전트 | 용도 |
 |------|---------|-------------|------|
 | `#ops-dashboard` | `C0AQD7NBASD` | 전체 | 주요 마일스톤 완료 요약만 (스팸 금지) |
-| `#agent-ceo` | `C0APY8MP26S` | CEO·CTO·PM | 지시·의사결정·우선순위 논의 |
-| `#agent-coding` | `C0APWTWS05T` | 코딩·디자이너 | 구현 시작/완료/오류 |
+| `#agent-ceo` | `C0APY8MP26S` | CEO·CTO | 지시·의사결정·우선순위 논의 |
+| `#agent-coding` | `C0APWTWS05T` | 코딩 에이전트 | 구현 시작/완료/오류 |
+| `#agent-design` | `C0AQ5MLCKD3` | 디자이너 에이전트 | 디자인 시작/완료/오류 |
 | `#agent-qa` | `C0AQUJQP9EC` | 검증 에이전트 | 검증 시작/완료/실패 |
 | `#agent-git` | `C0AQUJSEPFA` | 형상관리 에이전트 | 커밋·머지·push |
 | `#agent-travel` | `C0AQ3U7GFGC` | 여행일정 에이전트 | 일정 생성/검증 |
+| `#agent-pm` | `C0AR3CF86QY` | PM 에이전트 | 작업 배분·추적·보고 |
 
 ### 통신 흐름
 

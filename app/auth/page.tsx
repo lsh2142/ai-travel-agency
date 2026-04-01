@@ -19,19 +19,23 @@ export default function AuthPage() {
 
   useEffect(() => {
     // 이미 로그인된 경우 /plan 으로 리다이렉트 (비로그인 시 그대로 유지)
-    fetch('/api/auth/me')
-      .then((r) => r.json())
-      .then(({ user }: { user: { id: string; email: string } | null }) => {
+    const checkAuth = async () => {
+      try {
+        const r = await fetch('/api/auth/me');
+        const { user }: { user: { id: string; email: string } | null } = await r.json();
         if (user) {
           router.replace('/plan');
         } else {
           setAuthChecking(false);
         }
-      })
-      .catch(() => {
+      } catch (error) {
         // 에러 무시 (미로그인 상태로 처리)
+        console.error('Auth check failed:', error);
         setAuthChecking(false);
-      });
+      }
+    };
+
+    checkAuth();
   }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -82,6 +86,8 @@ export default function AuthPage() {
         },
       });
       if (error) throw error;
+      // OAuth 로그인이 성공하면 브라우저가 자동으로 redirectTo로 이동함
+      // 여기에 도달하지 않지만, 혹시 모르니 상태 유지
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Google 로그인에 실패했습니다.');
       setGoogleLoading(false);

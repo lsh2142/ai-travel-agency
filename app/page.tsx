@@ -48,8 +48,8 @@ export default function HomePage() {
       .then((r) => r.json())
       .then(({ user }: { user: { id: string; email: string } | null }) => {
         if (!user) {
-          // 미인증 사용자: 로그인 페이지로 리다이렉트
-          router.push('/auth')
+          // 미인증 사용자: 로그인 CTA 표시 (proxy.ts가 보호된 경로 리다이렉트 담당)
+          setLoggedIn(false)
           return
         }
         setLoggedIn(true)
@@ -69,8 +69,7 @@ export default function HomePage() {
         setRecentTrips(recent)
       })
       .catch(() => {
-        // 에러 발생: 미인증 상태로 처리하고 리다이렉트
-        router.push('/auth')
+        setLoggedIn(false)
       })
   }, [router])
 

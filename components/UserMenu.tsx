@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 
 interface User {
   id: string;
@@ -14,7 +14,6 @@ export default function UserMenu() {
   const [isLoading, setIsLoading] = useState(true);
   const menuRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
-  const pathname = usePathname();
 
   // Fetch user session on mount
   useEffect(() => {
@@ -64,11 +63,6 @@ export default function UserMenu() {
 
   if (isLoading) {
     return <div className="w-10 h-10 rounded-full bg-gray-200 animate-pulse" />;
-  }
-
-  // /auth 페이지에서는 로그인 버튼 숨김 (이미 로그인 폼이 있음)
-  if (!user && pathname === '/auth') {
-    return <div className="w-10 h-10" />;
   }
 
   // If not logged in, show login button

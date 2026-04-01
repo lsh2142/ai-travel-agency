@@ -9,6 +9,8 @@ import {
   type ParsedBlock,
 } from '@/lib/ai/travel-itinerary-agent'
 import { MOCK_PLAN } from '@/lib/mock/plan-mock'
+import { FlightBottomSheet } from '@/components/flights/FlightBottomSheet'
+import { parseTripToFlightParams } from '@/lib/flights/parse-trip-params'
 
 function BookingStatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
@@ -174,6 +176,7 @@ export default function PlanPage() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [selectedAlternatives, setSelectedAlternatives] = useState<Record<string, string>>({})
   const [error, setError] = useState<string | null>(null)
+  const [flightSheetOpen, setFlightSheetOpen] = useState(false)
   // 실제 스트리밍 진행 상태
   const [streamedChars, setStreamedChars] = useState(0)
   const [streamingPreview, setStreamingPreview] = useState('')
@@ -551,7 +554,13 @@ export default function PlanPage() {
       {/* Bottom CTA — 첫 Day 도착하면 바로 표시 */}
       {days.length > 0 && (
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-zinc-200 px-4 py-3">
-          <div className="max-w-2xl mx-auto">
+          <div className="max-w-2xl mx-auto space-y-2">
+            <button
+              onClick={() => setFlightSheetOpen(true)}
+              className="w-full py-2.5 border border-zinc-300 text-zinc-700 rounded-xl text-sm font-medium hover:bg-zinc-50 transition-colors"
+            >
+              ✈️ 항공권 검색
+            </button>
             <button
               onClick={handleConfirm}
               className="w-full py-3 bg-blue-600 text-white rounded-xl text-base font-semibold hover:bg-blue-700 transition-colors"
@@ -561,6 +570,22 @@ export default function PlanPage() {
           </div>
         </div>
       )}
+
+      {/* 항공권 Bottom Sheet */}
+      {params && (() => {
+        const fp = parseTripToFlightParams(params)
+        return (
+          <FlightBottomSheet
+            isOpen={flightSheetOpen}
+            onClose={() => setFlightSheetOpen(false)}
+            from={fp.from}
+            to={fp.to}
+            date={fp.date}
+            returnDate={fp.returnDate}
+            destination={params.destination}
+          />
+        )
+      })()}
     </div>
   )
 }

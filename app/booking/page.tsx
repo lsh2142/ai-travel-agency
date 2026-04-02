@@ -4,8 +4,6 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import type { TripPlan, BookingItem, Alternative } from '@/lib/types/travel'
 import { CheaperAlternativesPanel } from '@/components/CheaperAlternativesPanel'
-import AccommodationSection from '@/components/AccommodationSection'
-import ActivitySection from '@/components/ActivitySection'
 
 type MonitorStatus = 'idle' | 'loading' | 'registered' | 'error'
 
@@ -395,28 +393,6 @@ export default function BookingPage() {
             <p className="text-2xl mb-1">🎉</p>
             <p className="text-base font-semibold text-emerald-800">모든 항목 처리 완료!</p>
           </div>
-        )}
-
-        {/* Accommodation & Activity suggestions */}
-        {plan.params.destination && (
-          <>
-            <div className="pt-2">
-              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">
-                추가 숙박 · 액티비티 탐색
-              </p>
-              <AccommodationSection
-                destination={plan.params.destination}
-                checkIn={plan.params.dates?.start ?? ''}
-                checkOut={plan.params.dates?.end ?? ''}
-                guests={plan.params.people ?? 2}
-              />
-            </div>
-            <ActivitySection
-              destination={plan.params.destination}
-              date={plan.params.dates?.start}
-              guests={plan.params.people ?? 2}
-            />
-          </>
         )}
       </main>
 

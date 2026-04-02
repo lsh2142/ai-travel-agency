@@ -84,19 +84,18 @@ export function FlightCard({ flight }: FlightCardProps) {
           href={flight.bookingUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex-1 inline-flex items-center justify-center gap-1.5 py-2.5 px-4 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 active:bg-blue-800 transition-colors"
+          className="flex-1 inline-flex items-center justify-center py-2.5 px-4 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 active:bg-blue-800 transition-colors"
         >
-          <span>Google Flights 예약</span>
-          <span className="text-sm leading-none">↗</span>
+          Google Flights 예약 ↗
         </a>
         {flight.airlineUrl && (
           <a
             href={flight.airlineUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-none inline-flex items-center justify-center px-3 py-2.5 border border-zinc-300 text-zinc-700 text-sm font-medium rounded-xl hover:bg-zinc-50 active:bg-zinc-100 transition-colors whitespace-nowrap"
+            className="flex-1 inline-flex items-center justify-center px-3 py-2.5 border border-zinc-300 text-zinc-700 text-sm font-medium rounded-xl hover:bg-zinc-50 active:bg-zinc-100 transition-colors"
           >
-            항공사 직접
+            항공사 직접 예약
           </a>
         )}
       </div>

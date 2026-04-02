@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
   // 도시명이면 IATA 코드로 변환
   const to = /^[A-Z]{3}$/.test(toRaw) ? toRaw : (getCityIATA(toRaw) ?? toRaw.toUpperCase());
 
-  const useSerpApi = Boolean(process.env.SERPAPI_API_KEY);
+  const useSerpApi = Boolean(process.env.SERPAPI_API_KEY ?? process.env.SERP_API_KEY);
   const source: FlightApiResponse['source'] = useSerpApi ? 'serpapi' : 'mock';
 
   // 아웃바운드 항공편 조회

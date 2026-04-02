@@ -87,10 +87,10 @@ export async function fetchFlights(
   date: string,
   returnDate?: string,
 ): Promise<FlightOption[]> {
-  const apiKey = process.env.SERPAPI_API_KEY
+  const apiKey = process.env.SERPAPI_API_KEY ?? process.env.SERP_API_KEY
 
   if (!apiKey) {
-    console.warn('[serpapi-client] SERPAPI_API_KEY not set — using mock data')
+    console.warn('[serpapi-client] SERPAPI_API_KEY / SERP_API_KEY not set — using mock data')
     return getMockFlights(from, to, date)
   }
 

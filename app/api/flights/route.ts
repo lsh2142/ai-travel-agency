@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { flightProvider } from '@/lib/flights';
 import type { FlightSearchParams } from '@/lib/flights';
 import { getMockFlights } from '@/lib/mock/flights';
+import { fetchFlights } from '@/lib/flights/serpapi-client';
 import { sortFlightsDefault } from '@/lib/flights/sort-flights';
 import { getCityIATA } from '@/lib/flights/iata-map';
 import { buildGoogleFlightsUrl } from '@/lib/flights/booking-url';
@@ -27,7 +28,17 @@ export async function GET(request: NextRequest) {
   // 도시명이면 IATA 코드로 변환
   const to = /^[A-Z]{3}$/.test(toRaw) ? toRaw : (getCityIATA(toRaw) ?? toRaw.toUpperCase());
 
-  const outboundRaw = getMockFlights(from, to, date);
+  const useSerpApi = Boolean(process.env.SERPAPI_API_KEY);
+  const source: FlightApiResponse['source'] = useSerpApi ? 'serpapi' : 'mock';
+
+  // 아웃바운드 항공편 조회
+  const outboundRaw = useSerpApi
+    ? await fetchFlights(from, to, date, returnDate)
+    : getMockFlights(from, to, date).map((f) => ({
+        ...f,
+        bookingUrl: buildGoogleFlightsUrl(f.departure.airport, f.arrival.airport, date, returnDate),
+      }));
+
   if (outboundRaw.length === 0) {
     return NextResponse.json(
       { error: 'no_flights', message: '해당 구간 항공편 없음' },
@@ -35,28 +46,27 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // bookingUrl에 returnDate 포함
-  const outbound = sortFlightsDefault(
-    outboundRaw.map((f) => ({
-      ...f,
-      bookingUrl: buildGoogleFlightsUrl(f.departure.airport, f.arrival.airport, date, returnDate),
-    })),
-  );
+  const outbound = sortFlightsDefault(outboundRaw);
 
   const response: FlightApiResponse = {
     outbound,
     currency: 'KRW',
-    source: 'mock',
+    source,
   };
 
   if (returnDate) {
-    const returnFlights = getMockFlights(to, from, returnDate);
-    response.return = sortFlightsDefault(
-      returnFlights.map((f) => ({
-        ...f,
-        bookingUrl: buildGoogleFlightsUrl(f.departure.airport, f.arrival.airport, returnDate, date),
-      })),
-    );
+    const returnRaw = useSerpApi
+      ? await fetchFlights(to, from, returnDate)
+      : getMockFlights(to, from, returnDate).map((f) => ({
+          ...f,
+          bookingUrl: buildGoogleFlightsUrl(
+            f.departure.airport,
+            f.arrival.airport,
+            returnDate,
+            date,
+          ),
+        }));
+    response.return = sortFlightsDefault(returnRaw);
   }
 
   return NextResponse.json(response);

@@ -63,8 +63,13 @@ export const CITY_TO_IATA_MAP: Record<string, string> = {
   // 한국
   '서울': 'ICN',
   '인천': 'ICN',
+  '김포': 'GMP',
   '부산': 'PUS',
+  '김해': 'PUS',
   '제주': 'CJU',
+  '대구': 'TAE',
+  '광주': 'KWJ',
+  '청주': 'CJJ',
 }
 
 export function getCityIATA(cityName: string): string | null {

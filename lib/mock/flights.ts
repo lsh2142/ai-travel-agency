@@ -337,6 +337,107 @@ const ICN_SIN: FlightOption[] = [
   },
 ]
 
+// GMP → CJU (김포 → 제주 국내선)
+const GMP_CJU: FlightOption[] = [
+  {
+    id: 'RS-801-GMP-CJU',
+    airline: '에어서울',
+    flightNumber: 'RS-801',
+    departure: { airport: 'GMP', time: '06:00', date: '' },
+    arrival: { airport: 'CJU', time: '07:15', date: '' },
+    duration: 75,
+    stops: 0,
+    price: 117200,
+    class: 'economy',
+    bookingUrl: '',
+  },
+  {
+    id: 'ZE-701-GMP-CJU',
+    airline: '이스타항공',
+    flightNumber: 'ZE-701',
+    departure: { airport: 'GMP', time: '06:05', date: '' },
+    arrival: { airport: 'CJU', time: '07:20', date: '' },
+    duration: 75,
+    stops: 0,
+    price: 107400,
+    class: 'economy',
+    bookingUrl: '',
+  },
+  {
+    id: '7C-101-GMP-CJU',
+    airline: '제주항공',
+    flightNumber: '7C-101',
+    departure: { airport: 'GMP', time: '06:20', date: '' },
+    arrival: { airport: 'CJU', time: '07:35', date: '' },
+    duration: 75,
+    stops: 0,
+    price: 113200,
+    class: 'economy',
+    bookingUrl: '',
+    airlineUrl: 'https://www.jejuair.net/',
+  },
+  {
+    id: 'TW-201-GMP-CJU',
+    airline: '티웨이항공',
+    flightNumber: 'TW-201',
+    departure: { airport: 'GMP', time: '06:25', date: '' },
+    arrival: { airport: 'CJU', time: '07:40', date: '' },
+    duration: 75,
+    stops: 0,
+    price: 106700,
+    class: 'economy',
+    bookingUrl: '',
+  },
+  {
+    id: 'LJ-201-GMP-CJU',
+    airline: '진에어',
+    flightNumber: 'LJ-201',
+    departure: { airport: 'GMP', time: '06:30', date: '' },
+    arrival: { airport: 'CJU', time: '07:45', date: '' },
+    duration: 75,
+    stops: 0,
+    price: 118700,
+    class: 'economy',
+    bookingUrl: '',
+  },
+  {
+    id: 'BX-601-GMP-CJU',
+    airline: '에어부산',
+    flightNumber: 'BX-601',
+    departure: { airport: 'GMP', time: '13:00', date: '' },
+    arrival: { airport: 'CJU', time: '14:15', date: '' },
+    duration: 75,
+    stops: 0,
+    price: 112400,
+    class: 'economy',
+    bookingUrl: '',
+  },
+  {
+    id: 'TW-205-GMP-CJU',
+    airline: '티웨이항공',
+    flightNumber: 'TW-205',
+    departure: { airport: 'GMP', time: '15:15', date: '' },
+    arrival: { airport: 'CJU', time: '16:30', date: '' },
+    duration: 75,
+    stops: 0,
+    price: 107800,
+    class: 'economy',
+    bookingUrl: '',
+  },
+  {
+    id: 'TW-207-GMP-CJU',
+    airline: '티웨이항공',
+    flightNumber: 'TW-207',
+    departure: { airport: 'GMP', time: '18:30', date: '' },
+    arrival: { airport: 'CJU', time: '19:45', date: '' },
+    duration: 75,
+    stops: 0,
+    price: 105500,
+    class: 'economy',
+    bookingUrl: '',
+  },
+]
+
 // 노선별 mock 데이터 맵
 // TYO는 NRT 또는 HND를 가리킴 (도쿄 → NRT 우선)
 // OSA는 KIX
@@ -348,6 +449,7 @@ export const MOCK_FLIGHTS_BY_ROUTE: Record<string, FlightOption[]> = {
   'ICN-OSA': ICN_KIX,  // 오사카 → KIX
   'ICN-BKK': ICN_BKK,
   'ICN-SIN': ICN_SIN,
+  'GMP-CJU': GMP_CJU,  // 국내선: 김포 → 제주
 }
 
 /**

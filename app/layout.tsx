@@ -18,9 +18,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ko" className={cn("font-sans", geist.variable)}>
       <body className={inter.className}>
-        <header className="flex justify-between items-center px-6 py-4 border-b border-gray-200 bg-white">
+        <header className="flex items-center px-6 py-4 border-b border-gray-200 bg-white">
           <HomeButton />
-          <UserMenu />
+          <div className="ml-auto">
+            <UserMenu />
+          </div>
         </header>
         {children}
       </body>

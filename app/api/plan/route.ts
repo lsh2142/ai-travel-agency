@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
 
   const stream = client.messages.stream({
     model: 'claude-sonnet-4-6',
-    max_tokens: 8192,
+    max_tokens: 16000, // 8192 → 16000: 5일 여행 + 대안 3개씩 ~12,000 토큰 필요
     system: TRAVEL_ITINERARY_SYSTEM_PROMPT,
     messages: [{ role: 'user', content: userMessage }],
   })

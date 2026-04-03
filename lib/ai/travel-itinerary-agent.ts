@@ -54,17 +54,30 @@ export function buildItineraryRequest(params: TravelParams): string {
     : '날짜 미정 (3박4일 기준으로 작성)'
   const themes = params.themes.length > 0 ? params.themes.join(', ') : '일반 여행'
 
-  let prompt = `다음 조건으로 상세한 여행 일정을 작성해주세요.
+  // 정확한 박수/일수를 계산해 프롬프트에 명시 (AI가 일정 수를 오판하지 않도록)
+  let nightsText = ''
+  let dayRequirementText = '1. Day-by-Day 완전한 일정을 [DAY: {...}] 블록으로 작성'
+  if (params.dates) {
+    const nights = Math.round(
+      (new Date(params.dates.end).getTime() - new Date(params.dates.start).getTime()) / 86_400_000
+    )
+    const totalDays = nights + 1
+    nightsText = `- 여행 일수: ${nights}박 ${totalDays}일`
+    dayRequirementText =
+      `1. **반드시 Day 1 ~ Day ${totalDays} 모두** [DAY: {...}] 블록으로 작성 (총 ${totalDays}개 블록 필수, 절대 생략 금지)`
+  }
+
+  const prompt = `다음 조건으로 상세한 여행 일정을 작성해주세요.
 
 ## 여행 조건
 - 목적지: ${params.destination || '미정 (일본 도쿄 추천)'}
 - 인원: ${params.people}명
-- 여행 기간: ${dateRange}
+- 여행 기간: ${dateRange}${nightsText ? `\n${nightsText}` : ''}
 - 테마: ${themes}
 ${params.freeText ? `- 추가 요청사항: ${params.freeText}` : ''}
 
 ## 요청사항
-1. Day-by-Day 완전한 일정을 [DAY: {...}] 블록으로 작성
+${dayRequirementText}
 2. 각 날짜별 숙소, 주요 액티비티, 식당에 대해 반드시 3개 대안을 [ALTERNATIVES: {...}] 블록으로 제공
 3. 모든 항목에 실제 예약 가능한 딥링크 URL 포함
 4. 현실적인 이동 시간과 동선 고려

@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import type { TripPlan, BookingItem, Alternative } from '@/lib/types/travel'
 import { CheaperAlternativesPanel } from '@/components/CheaperAlternativesPanel'
+import AccommodationSection from '@/components/AccommodationSection'
+import ActivitySection from '@/components/ActivitySection'
 
 type MonitorStatus = 'idle' | 'loading' | 'registered' | 'error'
 
@@ -101,8 +103,11 @@ function ManualBookingCard({
 
   function extractPriceNumber(priceStr: string): number {
     const cleaned = priceStr.replace(/,/g, '').replace(/\s/g, '')
-    const m = cleaned.match(/(\d+)/)
-    return m ? parseInt(m[1]) : 0
+    const currencyMatch = cleaned.match(/[₩¥$€](\d+)/)
+    if (currencyMatch) return parseInt(currencyMatch[1])
+    const allNumbers = cleaned.match(/\d+/g)
+    if (!allNumbers || allNumbers.length === 0) return 0
+    return Math.max(...allNumbers.map((n) => parseInt(n)))
   }
 
   const currentPrice = currentItem.price ? extractPriceNumber(currentItem.price) : 0
@@ -218,8 +223,13 @@ function ManualBookingCard({
 
 function extractPriceNumber(priceStr: string): number {
   const cleaned = priceStr.replace(/,/g, '').replace(/\s/g, '')
-  const m = cleaned.match(/(\d+)/)
-  return m ? parseInt(m[1]) : 0
+  // 1순위: 통화 기호(₩·¥·$·€) 바로 뒤 숫자 — "1박 ₩85,000~" → 85000
+  const currencyMatch = cleaned.match(/[₩¥$€](\d+)/)
+  if (currencyMatch) return parseInt(currencyMatch[1])
+  // 2순위: 문자열 내 가장 큰 숫자 — "85000" → 85000, "1박" 같은 작은 숫자 무시
+  const allNumbers = cleaned.match(/\d+/g)
+  if (!allNumbers || allNumbers.length === 0) return 0
+  return Math.max(...allNumbers.map((n) => parseInt(n)))
 }
 
 export default function BookingPage() {
@@ -393,6 +403,28 @@ export default function BookingPage() {
             <p className="text-2xl mb-1">🎉</p>
             <p className="text-base font-semibold text-emerald-800">모든 항목 처리 완료!</p>
           </div>
+        )}
+
+        {/* Accommodation & Activity suggestions */}
+        {plan.params.destination && (
+          <>
+            <div className="pt-2">
+              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">
+                추가 숙박 · 액티비티 탐색
+              </p>
+              <AccommodationSection
+                destination={plan.params.destination}
+                checkIn={plan.params.dates?.start ?? ''}
+                checkOut={plan.params.dates?.end ?? ''}
+                guests={plan.params.people ?? 2}
+              />
+            </div>
+            <ActivitySection
+              destination={plan.params.destination}
+              date={plan.params.dates?.start}
+              guests={plan.params.people ?? 2}
+            />
+          </>
         )}
       </main>
 

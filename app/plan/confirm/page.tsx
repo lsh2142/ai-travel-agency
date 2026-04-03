@@ -22,8 +22,13 @@ function BookingStatusBadge({ status }: { status: string }) {
 
 function extractPriceNumber(priceStr: string): number {
   const cleaned = priceStr.replace(/,/g, '').replace(/\s/g, '')
-  const m = cleaned.match(/(\d+)/)
-  return m ? parseInt(m[1]) : 0
+  // 1순위: 통화 기호(₩·¥·$·€) 바로 뒤 숫자 — "1박 ₩85,000~" → 85000
+  const currencyMatch = cleaned.match(/[₩¥$€](\d+)/)
+  if (currencyMatch) return parseInt(currencyMatch[1])
+  // 2순위: 문자열 내 가장 큰 숫자 — "85000" → 85000, "1박" 같은 작은 숫자 무시
+  const allNumbers = cleaned.match(/\d+/g)
+  if (!allNumbers || allNumbers.length === 0) return 0
+  return Math.max(...allNumbers.map((n) => parseInt(n)))
 }
 
 export default function PlanConfirmPage() {

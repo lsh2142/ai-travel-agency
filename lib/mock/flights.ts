@@ -438,6 +438,74 @@ const GMP_CJU: FlightOption[] = [
   },
 ]
 
+// ICN → OKA (오키나와 나하)
+const ICN_OKA: FlightOption[] = [
+  {
+    id: 'KE-793-ICN-OKA',
+    airline: '대한항공',
+    flightNumber: 'KE-793',
+    departure: { airport: 'ICN', time: '09:15', date: '' },
+    arrival: { airport: 'OKA', time: '11:45', date: '' },
+    duration: 150,
+    stops: 0,
+    price: 268000,
+    class: 'economy',
+    bookingUrl: '',
+    airlineUrl: 'https://www.koreanair.com/booking/flight-booking',
+  },
+  {
+    id: 'OZ-181-ICN-OKA',
+    airline: '아시아나',
+    flightNumber: 'OZ-181',
+    departure: { airport: 'ICN', time: '07:40', date: '' },
+    arrival: { airport: 'OKA', time: '10:15', date: '' },
+    duration: 155,
+    stops: 0,
+    price: 291000,
+    class: 'economy',
+    bookingUrl: '',
+    airlineUrl: 'https://flyasiana.com/',
+  },
+  {
+    id: '7C-1601-ICN-OKA',
+    airline: '제주항공',
+    flightNumber: '7C-1601',
+    departure: { airport: 'ICN', time: '14:30', date: '' },
+    arrival: { airport: 'OKA', time: '17:00', date: '' },
+    duration: 150,
+    stops: 0,
+    price: 189000,
+    class: 'economy',
+    bookingUrl: '',
+    airlineUrl: 'https://www.jejuair.net/',
+  },
+  {
+    id: 'LJ-501-ICN-OKA',
+    airline: '진에어',
+    flightNumber: 'LJ-501',
+    departure: { airport: 'ICN', time: '17:20', date: '' },
+    arrival: { airport: 'OKA', time: '19:55', date: '' },
+    duration: 155,
+    stops: 0,
+    price: 175000,
+    class: 'economy',
+    bookingUrl: '',
+  },
+  {
+    id: 'KE-793-ICN-OKA-BIZ',
+    airline: '대한항공',
+    flightNumber: 'KE-793',
+    departure: { airport: 'ICN', time: '09:15', date: '' },
+    arrival: { airport: 'OKA', time: '11:45', date: '' },
+    duration: 150,
+    stops: 0,
+    price: 720000,
+    class: 'business',
+    bookingUrl: '',
+    airlineUrl: 'https://www.koreanair.com/booking/flight-booking',
+  },
+]
+
 // 노선별 mock 데이터 맵
 // TYO는 NRT 또는 HND를 가리킴 (도쿄 → NRT 우선)
 // OSA는 KIX
@@ -447,6 +515,7 @@ export const MOCK_FLIGHTS_BY_ROUTE: Record<string, FlightOption[]> = {
   'ICN-TYO': ICN_NRT,  // 도쿄 일반 → NRT
   'ICN-KIX': ICN_KIX,
   'ICN-OSA': ICN_KIX,  // 오사카 → KIX
+  'ICN-OKA': ICN_OKA,  // 오키나와 나하
   'ICN-BKK': ICN_BKK,
   'ICN-SIN': ICN_SIN,
   'GMP-CJU': GMP_CJU,  // 국내선: 김포 → 제주

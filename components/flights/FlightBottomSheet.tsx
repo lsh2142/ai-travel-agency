@@ -44,18 +44,21 @@ export function FlightBottomSheet({
   const [flights, setFlights] = useState<FlightOption[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [noResultsFromAPI, setNoResultsFromAPI] = useState(false)
   const [filter, setFilter] = useState<FlightFilterState>(DEFAULT_FILTER)
 
   const fetchFlights = useCallback(async () => {
     if (!to || !date) return
     setLoading(true)
     setError(null)
+    setNoResultsFromAPI(false)
     try {
       const params = new URLSearchParams({ from, to, date })
       if (returnDate) params.set('returnDate', returnDate)
       const res = await fetch(`/api/flights?${params.toString()}`)
       if (res.status === 404) {
         setFlights([])
+        setNoResultsFromAPI(true)
         return
       }
       if (!res.ok) {
@@ -74,6 +77,7 @@ export function FlightBottomSheet({
   useEffect(() => {
     if (isOpen) {
       setFilter(DEFAULT_FILTER)
+      setNoResultsFromAPI(false)
       fetchFlights()
     }
   }, [isOpen, fetchFlights])
@@ -185,7 +189,25 @@ export function FlightBottomSheet({
                   </div>
                 )}
 
-                {!loading && !error && filtered.length === 0 && (
+                {!loading && !error && noResultsFromAPI && (
+                  <div className="flex flex-col items-center justify-center h-32 text-center gap-3">
+                    <p className="text-2xl">✈️</p>
+                    <p className="text-sm font-medium text-zinc-700">항공편을 찾을 수 없습니다</p>
+                    <p className="text-xs text-zinc-400">
+                      ICN → {to} 직항 정보가 아직 없어요
+                    </p>
+                    <a
+                      href={`https://www.google.com/flights?hl=ko#flt=ICN.${to}.${date};c:KRW;e:1;s:0*0`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                    >
+                      Google Flights에서 직접 검색 →
+                    </a>
+                  </div>
+                )}
+
+                {!loading && !error && !noResultsFromAPI && filtered.length === 0 && flights.length > 0 && (
                   <div className="flex flex-col items-center justify-center h-24 text-center gap-2">
                     <p className="text-sm text-zinc-400">조건에 맞는 항공편이 없어요</p>
                     <button

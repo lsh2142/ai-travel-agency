@@ -41,9 +41,6 @@ importers:
       node-telegram-bot-api:
         specifier: ^0.67.0
         version: 0.67.0(request@2.88.2)
-      playwright:
-        specifier: ^1.58.2
-        version: 1.58.2
       react:
         specifier: 19.2.4
         version: 19.2.4
@@ -99,6 +96,9 @@ importers:
       eslint-config-next:
         specifier: 16.2.1
         version: 16.2.1(@typescript-eslint/parser@8.57.2(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3)
+      playwright:
+        specifier: ^1.58.2
+        version: 1.58.2
       tailwindcss:
         specifier: ^4
         version: 4.2.2

@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db/adapter';
-import { monitorScheduler } from '@/lib/monitor';
 import type { MonitorJobData } from '@/lib/monitor';
 import { getServerSession } from '@/lib/auth/supabase-auth';
 import type { BookingSite } from '@/types';
+
+async function getScheduler() {
+  const { monitorScheduler } = await import('@/lib/monitor');
+  return monitorScheduler;
+}
 
 export const runtime = 'nodejs';
 
@@ -12,8 +16,9 @@ export async function GET() {
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
+    const scheduler = await getScheduler();
     const [schedulerJobs, dbJobs] = await Promise.all([
-      monitorScheduler.listJobs(session.user.id),
+      scheduler.listJobs(session.user.id),
       getDb().getMonitorJobs(),
     ]);
     // DB jobs are authoritative; fall back to scheduler if DB is empty
@@ -62,8 +67,9 @@ export async function POST(request: NextRequest) {
     };
 
     // Persist to DB and schedule monitoring job in parallel
+    const scheduler = await getScheduler();
     const [assignedId] = await Promise.all([
-      monitorScheduler.addJob(jobData, body.intervalMs),
+      scheduler.addJob(jobData, body.intervalMs),
       getDb().saveMonitorJob({
         id: jobId,
         accommodationId: body.accommodationId,
@@ -97,8 +103,9 @@ export async function DELETE(request: NextRequest) {
   try {
     const jobId = request.nextUrl.searchParams.get('jobId');
     if (!jobId) return NextResponse.json({ error: 'jobId is required' }, { status: 400 });
+    const scheduler = await getScheduler();
     await Promise.all([
-      monitorScheduler.removeJob(jobId),
+      scheduler.removeJob(jobId),
       getDb().deleteMonitorJob(jobId),
     ]);
     return NextResponse.json({ success: true, message: '모니터링이 중단되었습니다.' });

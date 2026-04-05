@@ -7,12 +7,14 @@ export interface AccommodationSearchParams {
   guests?: number;       // 기본 2
   rooms?: number;        // 기본 1
   maxPrice?: number;     // 최대 1박 가격 (KRW)
-  type?: 'hotel' | 'ryokan' | 'guesthouse' | 'any'; // 기본 any
+  type?: 'hotel' | 'ryokan' | 'guesthouse' | 'airbnb' | 'any'; // 기본 any
 }
 
 export interface AccommodationResult {
+  id: string;
   name: string;
-  type: 'hotel' | 'ryokan' | 'guesthouse' | 'other';
+  type: 'hotel' | 'ryokan' | 'guesthouse' | 'airbnb' | 'other';
+  source?: string;
   location: string;
   checkIn: string;
   checkOut: string;
@@ -25,6 +27,7 @@ export interface AccommodationResult {
   bookingUrl?: string;
   thumbnailUrl?: string;
   available: boolean;
+  dataSource?: string;
 }
 
 export interface AccommodationProvider {

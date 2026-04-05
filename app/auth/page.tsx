@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/db/supabase';
+import { getSiteUrl } from '@/lib/utils';
 
 type Mode = 'login' | 'signup';
 
@@ -81,7 +82,7 @@ export default function AuthPage() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: `${getSiteUrl()}/auth/callback`,
         },
       });
       if (error) throw error;

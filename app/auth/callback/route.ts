@@ -1,42 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 
+/**
+ * Google OAuth 콜백 핸들러
+ *
+ * Supabase PKCE 플로우에서 code_verifier는 브라우저의 localStorage에 저장됩니다.
+ * 서버 Route Handler에서 exchangeCodeForSession을 호출하면 code_verifier에 접근할 수 없어
+ * PKCE 검증이 실패합니다.
+ *
+ * 따라서 code 쿼리 파라미터를 클라이언트 페이지로 전달하여
+ * 브라우저의 Supabase 클라이언트(localStorage 접근 가능)가 처리하도록 합니다.
+ */
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
+  const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
+  const error = searchParams.get('error');
+  const errorDescription = searchParams.get('error_description');
 
-  if (code) {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    if (!supabaseUrl || !supabaseAnonKey) {
-      return NextResponse.redirect(new URL('/auth', request.url));
-    }
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
-    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-
-    if (!error && data.session) {
-      const response = NextResponse.redirect(new URL('/plan', request.url));
-      // Set auth cookies
-      response.cookies.set('sb-access-token', data.session.access_token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        path: '/',
-        maxAge: 60 * 60 * 24 * 7,
-      });
-      if (data.session.refresh_token) {
-        response.cookies.set('sb-refresh-token', data.session.refresh_token, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
-          path: '/',
-          maxAge: 60 * 60 * 24 * 7,
-        });
-      }
-      return response;
-    }
+  // OAuth 에러 응답 처리
+  if (error) {
+    const redirectUrl = new URL('/auth', origin);
+    redirectUrl.searchParams.set('error', errorDescription ?? error);
+    return NextResponse.redirect(redirectUrl);
   }
 
-  // If there's an error or no code, redirect to auth page
-  return NextResponse.redirect(new URL('/auth', request.url));
+  // code가 있으면 클라이언트 페이지로 전달 (PKCE code_verifier는 브라우저에 있음)
+  if (code) {
+    const redirectUrl = new URL('/auth/callback-client', origin);
+    redirectUrl.searchParams.set('code', code);
+    return NextResponse.redirect(redirectUrl);
+  }
+
+  // code도 error도 없으면 로그인 페이지로
+  return NextResponse.redirect(new URL('/auth', origin));
 }

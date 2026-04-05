@@ -13,7 +13,7 @@ export default function HomeButton() {
     <button
       onClick={() => router.push('/')}
       aria-label="홈으로 이동"
-      className="fixed top-4 left-4 z-50 flex items-center justify-center w-10 h-10 rounded-full bg-white/90 shadow-md border border-gray-200 text-gray-600 hover:text-gray-900 hover:bg-white hover:shadow-lg transition-all duration-200 backdrop-blur-sm"
+      className="flex items-center justify-center w-10 h-10 rounded-full border border-gray-200 text-gray-600 hover:text-gray-900 hover:bg-gray-50 hover:shadow-sm transition-all duration-200"
     >
       <Home size={18} />
     </button>

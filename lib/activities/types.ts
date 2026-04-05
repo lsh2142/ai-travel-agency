@@ -1,15 +1,17 @@
+export type ActivityCategory = 'tour' | 'experience' | 'outdoor' | 'culture' | 'food' | 'other'
+
 export interface ActivitySearchParams {
   destination: string;
   date?: string;
   guests?: number;
-  category?: 'tour' | 'experience' | 'food' | 'outdoor' | 'all';
+  category?: ActivityCategory | 'all';
   maxPrice?: number;
 }
 
 export interface ActivityResult {
   id: string;
   name: string;
-  category: string;
+  category: ActivityCategory | string;
   description: string;
   location: string;
   duration: string;
@@ -20,6 +22,7 @@ export interface ActivityResult {
   reviewCount?: number;
   highlights?: string[];
   bookingUrl?: string;
+  thumbnailUrl?: string;
   available: boolean;
   dataSource: string;
   date?: string;

@@ -25,6 +25,7 @@ export function getSiteUrl(): string {
   if (typeof window !== 'undefined') {
     return window.location.origin;
   }
-  // 4. 서버사이드 개발 환경 폴백
-  return 'http://localhost:3000';
+  // 4. 서버사이드 폴백 — 빈 문자열 반환 (상대 경로로 동작)
+  // localhost를 하드코딩하지 않음: 배포 환경에서 잘못된 URL 생성 방지
+  return '';
 }

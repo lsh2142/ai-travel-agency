@@ -16,7 +16,7 @@ export default function MonitorsPage() {
   const [flightAlerts, setFlightAlerts] = useState<FlightPriceAlert[]>([])
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [checkStatus, setCheckStatus] = useState<'idle' | 'loading' | 'done'>('idle')
-  const [checkResult, setCheckResult] = useState<{ checked: number; notified: number } | null>(null)
+  const [checkResult, setCheckResult] = useState<{ checked: number; triggered: number; notified: number } | null>(null)
 
   const handleLogout = useCallback(async () => {
     await supabase.auth.signOut()
@@ -67,8 +67,8 @@ export default function MonitorsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
       })
-      const data = await res.json() as { checked: number; notified: number }
-      setCheckResult({ checked: data.checked, notified: data.notified })
+      const data = await res.json() as { checked: number; triggered: number; notified: number }
+      setCheckResult({ checked: data.checked, triggered: data.triggered ?? 0, notified: data.notified })
       setCheckStatus('done')
     } catch {
       setCheckStatus('idle')
@@ -234,8 +234,8 @@ export default function MonitorsPage() {
                 {checkResult && (
                   <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 text-sm text-emerald-700">
                     ✅ {checkResult.checked}개 확인 완료 —{' '}
-                    {checkResult.notified > 0
-                      ? `${checkResult.notified}개 Telegram 알림 발송됨`
+                    {checkResult.triggered > 0
+                      ? `${checkResult.triggered}개 조건 충족 / ${checkResult.notified > 0 ? `${checkResult.notified}개 Telegram 발송됨` : 'Telegram 미발송'}`
                       : '아직 목표 가격 이하 항공편 없음'}
                   </div>
                 )}

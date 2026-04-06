@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { flightMonitorStore } from '@/lib/flight-monitor/store'
+import { getAlerts, saveAlert, deleteAlert } from '@/lib/flight-monitor/store'
 import type { FlightPriceAlert } from '@/lib/flight-monitor/types'
 
 export const runtime = 'nodejs'
 
 // GET — 등록된 항공편 가격 알림 목록 조회
 export async function GET() {
-  const alerts = Array.from(flightMonitorStore.values())
-    .sort((a, b) => new Date(b.registeredAt).getTime() - new Date(a.registeredAt).getTime())
+  const alerts = await getAlerts()
   return NextResponse.json({ alerts })
 }
 
@@ -74,7 +73,7 @@ export async function POST(request: NextRequest) {
     bookingUrl,
   }
 
-  flightMonitorStore.set(alert.id, alert)
+  await saveAlert(alert)
   return NextResponse.json({ alert }, { status: 201 })
 }
 
@@ -84,8 +83,8 @@ export async function DELETE(request: NextRequest) {
   const id = searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'id 파라미터가 필요합니다' }, { status: 400 })
 
-  const existed = flightMonitorStore.delete(id)
-  if (!existed) return NextResponse.json({ error: '알림을 찾을 수 없습니다' }, { status: 404 })
+  const deleted = await deleteAlert(id)
+  if (!deleted) return NextResponse.json({ error: '알림을 찾을 수 없습니다' }, { status: 404 })
 
   return NextResponse.json({ ok: true })
 }

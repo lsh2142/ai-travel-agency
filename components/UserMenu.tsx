@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/db/supabase';
 
 interface User {
   id: string;
@@ -15,14 +16,14 @@ export default function UserMenu() {
   const menuRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
-  // Fetch user session on mount
   useEffect(() => {
+    // 1. 초기 로드: 서버 쿠키 기반으로 현재 세션 확인
     const fetchUser = async () => {
       try {
         const res = await fetch('/api/auth/me');
         const data = await res.json() as { user: User | null };
         setUser(data.user);
-      } catch (error) {
+      } catch {
         setUser(null);
       } finally {
         setIsLoading(false);
@@ -30,6 +31,23 @@ export default function UserMenu() {
     };
 
     fetchUser();
+
+    // 2. 실시간 구독: signIn/signOut 이벤트 즉시 반영
+    // router.replace() 후 layout이 리마운트되지 않아 fetchUser가 재실행되지 않는 문제 해결
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        setUser({
+          id: session.user.id,
+          email: session.user.email ?? '',
+        });
+        setIsLoading(false);
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null);
+        setIsLoading(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   // Close menu when clicking outside

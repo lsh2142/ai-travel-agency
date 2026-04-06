@@ -11,6 +11,7 @@ import { FlightCard } from '@/components/flights/FlightCard'
 import { FlightFilter } from '@/components/flights/FlightFilter'
 import type { FlightFilterState } from '@/components/flights/FlightFilter'
 import { FlightSkeleton } from '@/components/flights/FlightSkeleton'
+import FlightPriceMonitorPanel from '@/components/flights/FlightPriceMonitorPanel'
 
 const DEFAULT_FILTER: FlightFilterState = {
   tripType: 'roundtrip',
@@ -260,6 +261,16 @@ export default function FlightSearchPage() {
               />
             ))}
           </div>
+        )}
+        {/* 가격 알림 패널 — 항공편 검색 후 표시 */}
+        {flights.length > 0 && destinationIATA && departDate && (
+          <FlightPriceMonitorPanel
+            from="ICN"
+            to={destinationIATA}
+            departureDate={departDate}
+            returnDate={returnDate || undefined}
+            currentMinPrice={Math.min(...flights.map((f) => f.price))}
+          />
         )}
       </main>
 

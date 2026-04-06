@@ -6,6 +6,7 @@ import type { TripPlan, BookingItem, Alternative } from '@/lib/types/travel'
 import { CheaperAlternativesPanel } from '@/components/CheaperAlternativesPanel'
 import AccommodationSection from '@/components/AccommodationSection'
 import ActivitySection from '@/components/ActivitySection'
+import RentalCarSection from '@/components/RentalCarSection'
 
 type MonitorStatus = 'idle' | 'loading' | 'registered' | 'error'
 
@@ -424,6 +425,14 @@ export default function BookingPage() {
               date={plan.params.dates?.start}
               guests={plan.params.people ?? 2}
             />
+            {plan.params.dates?.start && plan.params.dates?.end && (
+              <RentalCarSection
+                destination={plan.params.destination}
+                pickupDate={plan.params.dates.start}
+                returnDate={plan.params.dates.end}
+                passengers={plan.params.people}
+              />
+            )}
           </>
         )}
       </main>

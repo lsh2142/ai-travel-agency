@@ -32,10 +32,13 @@ function extractPriceNumber(priceStr: string): number {
   return Math.max(...allNumbers.map((n) => parseInt(n)))
 }
 
+type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
+
 export default function PlanConfirmPage() {
   const router = useRouter()
   const [plan, setPlan] = useState<TripPlan | null>(null)
   const [selectedFlight, setSelectedFlight] = useState<SelectedFlight | null>(null)
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
 
   useEffect(() => {
     const stored = sessionStorage.getItem('tripPlan')
@@ -51,7 +54,30 @@ export default function PlanConfirmPage() {
     }
   }, [router])
 
-  function handleStartBooking() {
+  async function handleStartBooking() {
+    if (!plan) return
+
+    // Supabase 저장 시도 (실패해도 예약 페이지로 계속 진행)
+    setSaveStatus('saving')
+    try {
+      const res = await fetch('/api/itinerary/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan, selectedFlight }),
+      })
+      if (res.ok) {
+        setSaveStatus('saved')
+        // localStorage에도 저장 (trips 페이지용)
+        const stored = JSON.parse(localStorage.getItem('trips') ?? '[]') as Array<{ id: string; plan: TripPlan }>
+        const filtered = stored.filter((t) => t.id !== plan.id)
+        localStorage.setItem('trips', JSON.stringify([...filtered, { id: plan.id, plan }]))
+      } else {
+        setSaveStatus('error')
+      }
+    } catch {
+      setSaveStatus('error')
+    }
+
     router.push('/booking')
   }
 
@@ -223,12 +249,27 @@ export default function PlanConfirmPage() {
 
       {/* Bottom CTA */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-zinc-200 px-4 py-3">
-        <div className="max-w-2xl mx-auto">
+        <div className="max-w-2xl mx-auto space-y-1.5">
+          {saveStatus === 'error' && (
+            <p className="text-xs text-amber-600 text-center">
+              ⚠️ 저장에 실패했지만 예약은 계속 진행됩니다
+            </p>
+          )}
           <button
             onClick={handleStartBooking}
-            className="w-full py-3 bg-blue-600 text-white rounded-xl text-base font-semibold hover:bg-blue-700 transition-colors"
+            disabled={saveStatus === 'saving'}
+            className="w-full py-3 bg-blue-600 text-white rounded-xl text-base font-semibold hover:bg-blue-700 disabled:opacity-60 transition-colors flex items-center justify-center gap-2"
           >
-            예약 시작하기 →
+            {saveStatus === 'saving' ? (
+              <>
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                저장 중...
+              </>
+            ) : saveStatus === 'saved' ? (
+              '✅ 저장 완료 — 예약 시작하기 →'
+            ) : (
+              '예약 시작하기 →'
+            )}
           </button>
         </div>
       </div>

@@ -37,6 +37,25 @@ export async function POST(request: NextRequest) {
     )
   }
 
+  // Telegram chatId 유효성 검증 (TELEGRAM_BOT_TOKEN이 설정된 경우에만)
+  const botToken = process.env.TELEGRAM_BOT_TOKEN
+  if (botToken) {
+    try {
+      const chatRes = await fetch(
+        `https://api.telegram.org/bot${botToken}/getChat?chat_id=${encodeURIComponent(telegramChatId)}`
+      )
+      const chatData = await chatRes.json() as { ok: boolean; description?: string }
+      if (!chatData.ok) {
+        return NextResponse.json(
+          { error: `유효하지 않은 Telegram chatId: ${chatData.description ?? 'chat not found'}` },
+          { status: 400 }
+        )
+      }
+    } catch {
+      // 네트워크 오류 시 검증 건너뜀 (등록은 허용)
+    }
+  }
+
   const route = `${from}-${to}`
   const bookingUrl = body.bookingUrl ||
     `https://www.google.com/flights#flt=${from}.${to}.${departureDate};c:KRW`

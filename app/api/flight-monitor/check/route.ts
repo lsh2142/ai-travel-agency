@@ -10,11 +10,7 @@ import type { FlightPriceAlert } from '@/lib/flight-monitor/types'
 
 export const runtime = 'nodejs'
 
-export async function POST(request: NextRequest) {
-  // 특정 alertId를 지정하면 해당 항목만 확인 (선택)
-  let body: { alertId?: string } = {}
-  try { body = await request.json() as { alertId?: string } } catch { /* 빈 body 허용 */ }
-
+async function runCheck(body: { alertId?: string }) {
   const now = new Date().toISOString()
   const alerts = Array.from(flightMonitorStore.values()).filter(
     (a) => a.status === 'active' && (!body.alertId || a.id === body.alertId)
@@ -49,4 +45,16 @@ export async function POST(request: NextRequest) {
     notified: notified.length,
     results,
   })
+}
+
+// GET — Vercel Cron Job 호환 (Cron은 기본적으로 GET 호출)
+export async function GET() {
+  return runCheck({})
+}
+
+export async function POST(request: NextRequest) {
+  // 특정 alertId를 지정하면 해당 항목만 확인 (선택)
+  let body: { alertId?: string } = {}
+  try { body = await request.json() as { alertId?: string } } catch { /* 빈 body 허용 */ }
+  return runCheck(body)
 }

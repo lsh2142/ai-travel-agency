@@ -12,6 +12,5 @@ declare global {
 export const flightMonitorStore: Map<string, FlightPriceAlert> =
   globalThis.__flightMonitorStore ?? new Map<string, FlightPriceAlert>()
 
-if (process.env.NODE_ENV !== 'production') {
-  globalThis.__flightMonitorStore = flightMonitorStore
-}
+// 항상 globalThis에 저장 — 프로덕션 cold start 시에도 동일 Map 인스턴스 재사용
+globalThis.__flightMonitorStore = flightMonitorStore

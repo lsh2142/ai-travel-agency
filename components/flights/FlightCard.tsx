@@ -8,7 +8,8 @@ function formatDuration(minutes: number): string {
   return m > 0 ? `${h}시간 ${m}분` : `${h}시간`
 }
 
-function formatPrice(price: number): string {
+function formatPrice(price: number | null | undefined): string {
+  if (price == null || price === 0) return '가격 정보 없음'
   return `₩ ${price.toLocaleString('ko-KR')}~`
 }
 

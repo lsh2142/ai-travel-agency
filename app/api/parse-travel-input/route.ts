@@ -4,6 +4,10 @@ import type { TravelParams } from '@/lib/types/travel'
 
 const client = new Anthropic()
 
+function stripJsonFence(raw: string): string {
+  return raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
+}
+
 export async function POST(req: NextRequest) {
   const { text } = await req.json()
   if (!text || typeof text !== 'string') {
@@ -45,7 +49,8 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const parsed = JSON.parse(content.text) as TravelParams
+    const cleaned = stripJsonFence(content.text)
+    const parsed = JSON.parse(cleaned) as TravelParams
     return NextResponse.json(parsed)
   } catch {
     return NextResponse.json({ error: 'Parse failed', raw: content.text }, { status: 500 })

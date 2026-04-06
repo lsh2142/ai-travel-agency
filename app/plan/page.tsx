@@ -491,8 +491,8 @@ export default function PlanPage() {
 
   return (
     <div className="min-h-screen bg-zinc-50 pb-24">
-      {/* Header */}
-      <header className="bg-white border-b border-zinc-200 px-4 py-3 sticky top-0 z-10">
+      {/* 페이지 서브 네비 (layout.tsx 전역 헤더와 구분) */}
+      <nav className="bg-white border-b border-zinc-200 px-4 py-3 sticky top-0 z-10">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
           <button onClick={() => router.back()} className="text-sm text-zinc-500 hover:text-zinc-800">
             ← 뒤로
@@ -508,7 +508,7 @@ export default function PlanPage() {
             )}
           </span>
         </div>
-      </header>
+      </nav>
 
       {/* 스트리밍 중 상단 진행바 — smooth displayProgress 반영 */}
       {(isGenerating || displayProgress > 0) && (

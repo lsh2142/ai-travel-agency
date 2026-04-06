@@ -121,16 +121,6 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-zinc-50">
-      {/* Header */}
-      <header className="bg-white border-b border-zinc-200 px-4 py-3 flex items-center justify-between">
-        <span className="text-lg font-bold text-zinc-900">✈️ AI 여행 플래너</span>
-        {loggedIn ? (
-          <a href="/trips" className="text-sm text-blue-600 hover:underline font-medium">내 여행</a>
-        ) : (
-          <a href="/auth" className="text-sm text-blue-600 hover:underline font-medium">로그인</a>
-        )}
-      </header>
-
       <main className="max-w-2xl mx-auto px-4 py-8">
         {/* Hero */}
         <div className="text-center mb-8">

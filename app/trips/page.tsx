@@ -148,8 +148,8 @@ export default function TripsPage() {
 
   return (
     <div className="min-h-screen bg-zinc-50">
-      {/* Header */}
-      <header className="bg-white border-b border-zinc-200 px-4 py-3">
+      {/* 페이지 서브 네비 (layout.tsx 전역 헤더와 구분) */}
+      <nav className="bg-white border-b border-zinc-200 px-4 py-3">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
           <button onClick={() => router.push('/')} className="text-sm text-zinc-500 hover:text-zinc-800">
             ← 홈
@@ -157,7 +157,7 @@ export default function TripsPage() {
           <h1 className="text-base font-semibold text-zinc-900">내 여행</h1>
           <span />
         </div>
-      </header>
+      </nav>
 
       <main className="max-w-2xl mx-auto px-4 py-4">
         {/* Filter Tabs */}

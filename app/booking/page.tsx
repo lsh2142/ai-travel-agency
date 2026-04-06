@@ -352,8 +352,8 @@ export default function BookingPage() {
 
   return (
     <div className="min-h-screen bg-zinc-50 pb-24">
-      {/* Header */}
-      <header className="bg-white border-b border-zinc-200 px-4 py-3 sticky top-0 z-10">
+      {/* 페이지 서브 네비 (layout.tsx 전역 헤더와 구분) */}
+      <nav className="bg-white border-b border-zinc-200 px-4 py-3 sticky top-0 z-10">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
           <button onClick={() => router.back()} className="text-sm text-zinc-500 hover:text-zinc-800">
             ← 이전
@@ -361,7 +361,7 @@ export default function BookingPage() {
           <h1 className="text-base font-semibold text-zinc-900">예약 진행</h1>
           <span className="text-xs text-zinc-500">{processedCount}/{totalCount}</span>
         </div>
-      </header>
+      </nav>
 
       <main className="max-w-2xl mx-auto px-4 py-4 space-y-4">
         {/* Progress */}

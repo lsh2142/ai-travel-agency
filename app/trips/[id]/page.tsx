@@ -161,8 +161,8 @@ export default function TripDetailPage() {
 
   return (
     <div className="min-h-screen bg-zinc-50 pb-8">
-      {/* Header */}
-      <header className="bg-white border-b border-zinc-200 px-4 py-3 sticky top-0 z-10">
+      {/* 페이지 서브 네비 (layout.tsx 전역 헤더와 구분) */}
+      <nav className="bg-white border-b border-zinc-200 px-4 py-3 sticky top-0 z-10">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
           <button onClick={() => router.push('/trips')} className="text-sm text-zinc-500 hover:text-zinc-800">
             ← 내 여행
@@ -170,7 +170,7 @@ export default function TripDetailPage() {
           <h1 className="text-base font-semibold text-zinc-900">여행 상세</h1>
           <span />
         </div>
-      </header>
+      </nav>
 
       <main className="max-w-2xl mx-auto px-4 py-4 space-y-6">
         {/* Trip Header */}

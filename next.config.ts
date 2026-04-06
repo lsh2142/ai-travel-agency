@@ -15,6 +15,14 @@ function getWorkspaceRoot(): string {
   return __dirname;
 }
 
+// Turbopack spawns a child Node.js process for PostCSS transforms.
+// On macOS (Homebrew), `node` lives at /opt/homebrew/bin which may not be
+// in the restricted PATH that Turbopack inherits. Inject it here so
+// `next build` (Turbopack) can spawn the PostCSS worker successfully.
+if (process.env.PATH && !process.env.PATH.includes('/opt/homebrew/bin')) {
+  process.env.PATH = `/opt/homebrew/bin:${process.env.PATH}`;
+}
+
 const nextConfig: NextConfig = {
   turbopack: {
     root: getWorkspaceRoot(),

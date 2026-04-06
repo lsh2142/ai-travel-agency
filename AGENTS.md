@@ -9,7 +9,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 > 이 문서는 프로젝트의 모든 영구 에이전트를 정의합니다.
 > 새 작업 배분 시 PM 에이전트가 이 문서를 기준으로 판단합니다.
 >
-> 마지막 업데이트: 2026-03-29 | 관리: PM 에이전트 | 경로: /Users/claw/ai-travel-agent
+> 마지막 업데이트: 2026-04-02 | 관리: PM 에이전트 | 경로: /Users/claw/ai-travel-agent
 
 ---
 
@@ -62,6 +62,20 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - **세션 ID:** local_92fbc668
 - **역할:** localhost:3000 pnpm dev 프로세스 관리
 - **포트:** 3000 (Next.js)
+
+---
+
+## 9. 개발 에이전트 — 항공권 UX MVP
+- **세션 ID:** local_b41a7ffe-ad33-47dc-a396-7b037695b34c
+- **역할:** 항공권 UX MVP 구현 전담
+- **상태:** 🟢 running (2026-04-02 시작)
+- **담당:**
+  - `FlightBottomSheet` 컴포넌트 구현
+  - `FlightCard` 컴포넌트 구현
+  - `/api/flights` 엔드포인트 구현
+  - mock 데이터 세팅
+- **채널:** #agent-coding (C0APWTWS05T)
+- **보고 대상:** 검증 에이전트 → 형상관리 에이전트
 
 ---
 
@@ -120,6 +134,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 | 🟡 P2 | Supabase 003_dashboard.sql 마이그레이션 적용 | CTO | ⏳ 대기 | — |
 | 🟡 P2 | Vercel 배포 | 형상관리 | ⏳ 대기 | 환경변수 설정 필요 |
 | 🟢 P3 | Redis Cloud 설정 | CTO | ⏳ 대기 | — |
+| 🔴 P1 | 항공권 UX MVP (FlightBottomSheet, FlightCard, /api/flights, mock) | 개발 에이전트 (local_b41a7ffe) | 🔧 진행 중 | — |
 | 🟢 P3 | 일회성 worktree 정리 (10개) | PM | 🔧 진행 중 | cleanup-worktrees.sh 수동 실행 필요 |
 
 ---

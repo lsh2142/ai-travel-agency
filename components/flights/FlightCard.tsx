@@ -14,13 +14,18 @@ function formatPrice(price: number): string {
 
 interface FlightCardProps {
   flight: FlightOption
+  /** 항공권 선택 모드: 설정 시 "이 항공편으로 일정 만들기" 버튼 표시 */
+  onSelect?: (flight: FlightOption) => void
+  /** 현재 선택된 항공편 ID (선택 강조 표시용) */
+  selectedId?: string | null
 }
 
-export function FlightCard({ flight }: FlightCardProps) {
+export function FlightCard({ flight, onSelect, selectedId }: FlightCardProps) {
+  const isSelected = selectedId === flight.id
   const isDirectFlight = flight.stops === 0
 
   return (
-    <div className="bg-white rounded-xl border border-zinc-200 p-4 space-y-3">
+    <div className={`bg-white rounded-xl border p-4 space-y-3 transition-colors ${isSelected ? 'border-blue-500 bg-blue-50/30' : 'border-zinc-200'}`}>
       {/* 상단: 항공사 + 편명 + 직항 뱃지 */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -79,26 +84,42 @@ export function FlightCard({ flight }: FlightCardProps) {
       </div>
 
       {/* CTA 버튼 */}
-      <div className="flex gap-2 pt-1">
-        <a
-          href={flight.bookingUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex-1 inline-flex items-center justify-center py-2.5 px-4 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 active:bg-blue-800 transition-colors"
+      {onSelect ? (
+        /* 선택 모드: 일정 만들기 버튼 */
+        <button
+          type="button"
+          onClick={() => onSelect(flight)}
+          className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+            isSelected
+              ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+              : 'bg-blue-600 text-white hover:bg-blue-700'
+          }`}
         >
-          Google Flights 예약 ↗
-        </a>
-        {flight.airlineUrl && (
+          {isSelected ? '✅ 선택됨 — 이 항공편으로 진행' : '이 항공편으로 일정 만들기 →'}
+        </button>
+      ) : (
+        /* 기본 모드: 외부 예약 링크 */
+        <div className="flex gap-2 pt-1">
           <a
-            href={flight.airlineUrl}
+            href={flight.bookingUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 inline-flex items-center justify-center px-3 py-2.5 border border-zinc-300 text-zinc-700 text-sm font-medium rounded-xl hover:bg-zinc-50 active:bg-zinc-100 transition-colors"
+            className="flex-1 inline-flex items-center justify-center py-2.5 px-4 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 active:bg-blue-800 transition-colors"
           >
-            항공사 직접 예약
+            Google Flights 예약 ↗
           </a>
-        )}
-      </div>
+          {flight.airlineUrl && (
+            <a
+              href={flight.airlineUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 inline-flex items-center justify-center px-3 py-2.5 border border-zinc-300 text-zinc-700 text-sm font-medium rounded-xl hover:bg-zinc-50 active:bg-zinc-100 transition-colors"
+            >
+              항공사 직접 예약
+            </a>
+          )}
+        </div>
+      )}
     </div>
   )
 }

@@ -116,7 +116,19 @@ export default function HomePage() {
     sessionStorage.setItem('travelParams', JSON.stringify(finalParams))
     // 새 여행 시작 시 이전 플랜 캐시 초기화
     sessionStorage.removeItem('tripPlan')
+    sessionStorage.removeItem('selectedFlight')
     router.push('/plan')
+  }
+
+  function handleFlightFirst() {
+    const finalParams: TravelParams = {
+      ...params,
+      freeText: chatInput || params.freeText,
+    }
+    sessionStorage.setItem('travelParams', JSON.stringify(finalParams))
+    sessionStorage.removeItem('tripPlan')
+    sessionStorage.removeItem('selectedFlight')
+    router.push('/plan/flights')
   }
 
   return (
@@ -311,14 +323,26 @@ export default function HomePage() {
         </div>
 
         {/* CTA */}
-        <button
-          type="button"
-          disabled={!canSubmit}
-          onClick={handleSubmit}
-          className="w-full py-3.5 bg-blue-600 text-white rounded-xl text-base font-semibold hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-        >
-          {isParsingChat ? '분석 중...' : '일정 만들기 →'}
-        </button>
+        <div className="space-y-3">
+          <button
+            type="button"
+            disabled={!canSubmit}
+            onClick={handleSubmit}
+            className="w-full py-3.5 bg-blue-600 text-white rounded-xl text-base font-semibold hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            {isParsingChat ? '분석 중...' : '일정 만들기 →'}
+          </button>
+
+          {params.destination.trim() !== '' && (
+            <button
+              type="button"
+              onClick={handleFlightFirst}
+              className="w-full py-3 border-2 border-blue-600 text-blue-600 rounded-xl text-sm font-semibold hover:bg-blue-50 transition-colors flex items-center justify-center gap-2"
+            >
+              ✈️ 항공권 먼저 찾기
+            </button>
+          )}
+        </div>
 
         <p className="text-center text-xs text-zinc-400 mt-3">
           목적지 또는 자유입력 중 하나만 입력해도 시작할 수 있어요

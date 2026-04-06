@@ -11,6 +11,7 @@ import {
 import { MOCK_PLAN } from '@/lib/mock/plan-mock'
 import { FlightBottomSheet } from '@/components/flights/FlightBottomSheet'
 import { parseTripToFlightParams } from '@/lib/flights/parse-trip-params'
+import type { SelectedFlight } from '@/lib/types/flight-session'
 
 function BookingStatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
@@ -177,6 +178,7 @@ export default function PlanPage() {
   const [selectedAlternatives, setSelectedAlternatives] = useState<Record<string, string>>({})
   const [error, setError] = useState<string | null>(null)
   const [flightSheetOpen, setFlightSheetOpen] = useState(false)
+  const [selectedFlight, setSelectedFlight] = useState<SelectedFlight | null>(null)
   // 실제 스트리밍 진행 상태
   const [streamedChars, setStreamedChars] = useState(0)
   const [streamingPreview, setStreamingPreview] = useState('')
@@ -207,6 +209,12 @@ export default function PlanPage() {
     if (!stored) { router.replace('/'); return }
     const p = JSON.parse(stored) as TravelParams
     setParams(p)
+
+    // 항공권 선택 여부 복원
+    const sf = sessionStorage.getItem('selectedFlight')
+    if (sf) {
+      try { setSelectedFlight(JSON.parse(sf) as SelectedFlight) } catch { /* 무시 */ }
+    }
 
     // 이미 완성된 플랜이 캐시에 있으면 재생성 스킵
     const cached = sessionStorage.getItem('tripPlan')
@@ -521,6 +529,40 @@ export default function PlanPage() {
       )}
 
       <main className="max-w-2xl mx-auto px-4 py-4 space-y-6">
+        {/* 선택한 항공편 배너 */}
+        {selectedFlight && (
+          <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-lg flex-none">✈️</span>
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-blue-800 truncate">
+                  {selectedFlight.outbound.airline} {selectedFlight.outbound.flightNumber} &nbsp;·&nbsp;
+                  {selectedFlight.outbound.departure.time} ICN → {selectedFlight.outbound.arrival.airport}
+                </p>
+                <p className="text-xs text-blue-600 mt-0.5">
+                  {selectedFlight.confirmedDates.start} ~ {selectedFlight.confirmedDates.end}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-none">
+              <span className="text-sm font-bold text-blue-900">
+                ₩{selectedFlight.outbound.price.toLocaleString('ko-KR')}~
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  sessionStorage.removeItem('selectedFlight')
+                  setSelectedFlight(null)
+                }}
+                className="text-blue-400 hover:text-blue-600 text-xs"
+                aria-label="항공편 선택 취소"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
+
         {days.map((day) => (
           <DaySection
             key={day.dayNumber}

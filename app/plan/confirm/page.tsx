@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import type { TripPlan } from '@/lib/types/travel'
+import type { SelectedFlight } from '@/lib/types/flight-session'
 
 function BookingStatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
@@ -34,6 +35,7 @@ function extractPriceNumber(priceStr: string): number {
 export default function PlanConfirmPage() {
   const router = useRouter()
   const [plan, setPlan] = useState<TripPlan | null>(null)
+  const [selectedFlight, setSelectedFlight] = useState<SelectedFlight | null>(null)
 
   useEffect(() => {
     const stored = sessionStorage.getItem('tripPlan')
@@ -42,6 +44,11 @@ export default function PlanConfirmPage() {
       return
     }
     setPlan(JSON.parse(stored) as TripPlan)
+
+    const sf = sessionStorage.getItem('selectedFlight')
+    if (sf) {
+      try { setSelectedFlight(JSON.parse(sf) as SelectedFlight) } catch { /* 무시 */ }
+    }
   }, [router])
 
   function handleStartBooking() {
@@ -69,6 +76,10 @@ export default function PlanConfirmPage() {
       if (alt?.price) totalBudget += extractPriceNumber(alt.price)
     })
   })
+  // 항공권 비용 합산 (인원 × 항공권 가격)
+  if (selectedFlight) {
+    totalBudget += selectedFlight.outbound.price * params.people
+  }
 
   return (
     <div className="min-h-screen bg-zinc-50 pb-24">
@@ -101,10 +112,55 @@ export default function PlanConfirmPage() {
           <p className="text-xs text-zinc-400 mt-2">{days.length}일 여행</p>
           {totalBudget > 0 && (
             <p className="text-sm font-semibold text-blue-600 mt-2">
-              💰 총 예산: ₩{totalBudget.toLocaleString('ko-KR')} <span className="text-xs font-normal text-zinc-400">(대안 기준 합산)</span>
+              💰 총 예산: ₩{totalBudget.toLocaleString('ko-KR')} <span className="text-xs font-normal text-zinc-400">(대안 기준 합산{selectedFlight ? ' + 항공권' : ''})</span>
             </p>
           )}
         </div>
+
+        {/* 선택한 항공편 카드 */}
+        {selectedFlight && (
+          <div className="bg-white rounded-2xl border border-zinc-200 p-5">
+            <h3 className="text-sm font-semibold text-zinc-900 mb-3">✈️ 선택 항공편</h3>
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-zinc-900">
+                  {selectedFlight.outbound.airline} {selectedFlight.outbound.flightNumber}
+                </p>
+                <p className="text-xs text-zinc-500">
+                  {selectedFlight.outbound.departure.time} ICN → {selectedFlight.outbound.arrival.airport} {selectedFlight.outbound.arrival.time}
+                </p>
+                <p className="text-xs text-zinc-400">
+                  {selectedFlight.confirmedDates.start} ~ {selectedFlight.confirmedDates.end}
+                </p>
+                <p className="text-xs text-zinc-500">
+                  {selectedFlight.outbound.stops === 0 ? '직항' : `${selectedFlight.outbound.stops}회 경유`} &nbsp;·&nbsp;
+                  {selectedFlight.outbound.class === 'economy' ? '이코노미' : '비즈니스'}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-lg font-bold text-zinc-900">
+                  ₩{selectedFlight.outbound.price.toLocaleString('ko-KR')}~
+                </p>
+                <p className="text-xs text-zinc-400">1인 기준</p>
+                {params.people > 1 && (
+                  <p className="text-xs text-blue-600 mt-0.5">
+                    {params.people}인 합계 ₩{(selectedFlight.outbound.price * params.people).toLocaleString('ko-KR')}~
+                  </p>
+                )}
+              </div>
+            </div>
+            {selectedFlight.outbound.bookingUrl && (
+              <a
+                href={selectedFlight.outbound.bookingUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 inline-flex items-center text-xs text-blue-600 hover:underline"
+              >
+                Google Flights에서 예약 →
+              </a>
+            )}
+          </div>
+        )}
 
         {/* Itinerary Timeline */}
         <div className="space-y-4">

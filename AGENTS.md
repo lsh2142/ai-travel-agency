@@ -9,18 +9,19 @@ This version has breaking changes — APIs, conventions, and file structure may 
 > 이 문서는 프로젝트의 모든 영구 에이전트를 정의합니다.
 > 새 작업 배분 시 PM 에이전트가 이 문서를 기준으로 판단합니다.
 >
-> 마지막 업데이트: 2026-04-02 | 관리: PM 에이전트 | 경로: /Users/claw/ai-travel-agent
+> 마지막 업데이트: 2026-04-07 | 관리: PM 에이전트 | 경로: /Users/claw/ai-travel-agent
 
 ---
 
 ## 영구 에이전트 (6종)
 
 ### 👔 CEO 에이전트
-- **세션 ID:** local_4ceb4a29
+- **세션 ID:** ⚠️ TBD (신규 시작 필요) — 구 세션 `local_4ceb4a29-e4cd-4188-b78b-0f59796c74b0` 사망 확인 (2026-04-07, 174턴 무응답)
 - **역할:** 프로젝트 전체 방향 감독, 에이전트 간 조율, 우선순위 결정
 - **담당 범위:** 서비스 아키텍처 방향, 기능 우선순위, 고객 여정 설계
 - **의사결정 권한:** 기능 추가/제거, 에이전트 작업 배분, MVP 범위 결정
 - **보고 대상:** Dispatch(사용자)
+- **재시작 방법:** `.claude/agents/ceo-agent-briefing.md` 내용을 새 Claude Code 세션 첫 메시지로 사용
 
 ### 🛠 CTO 에이전트
 - **세션 ID:** (새로 생성 필요)

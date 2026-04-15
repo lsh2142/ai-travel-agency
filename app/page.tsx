@@ -226,7 +226,10 @@ export default function HomePage() {
                 min={1}
                 max={20}
                 value={params.people}
-                onChange={(e) => setParams((p) => ({ ...p, people: parseInt(e.target.value) || 1 }))}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value, 10);
+                  if (!isNaN(v) && v >= 1) setParams((p) => ({ ...p, people: v }));
+                }}
                 className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>

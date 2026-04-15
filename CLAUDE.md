@@ -1,48 +1,112 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Build & Development Commands
+
+```bash
+pnpm dev          # Start dev server (Next.js 16, localhost:3000)
+pnpm build        # Production build
+pnpm lint         # ESLint (flat config, next core-web-vitals + typescript)
+pnpm test         # Run all tests (vitest)
+pnpm test:watch   # Watch mode
+npx vitest run __tests__/planner.test.ts  # Run single test file
+npx tsc --noEmit  # Type-check without emitting
+```
+
+## Architecture Overview
+
+**Stack:** Next.js 16.2 (App Router) · React 19 · TypeScript · Tailwind CSS 4 · Supabase (auth + DB) · Claude API (Anthropic SDK) · BullMQ + IORedis (job queues)
+
+**Path alias:** `@/*` maps to project root (e.g., `@/lib/flights`, `@/components/ui`)
+
+### App Router Structure (`app/`)
+
+| Route | Purpose |
+|-------|---------|
+| `/` (`page.tsx`) | Landing / chat interface for travel planning |
+| `/plan` | AI-generated travel plan view |
+| `/booking` | Booking page (flights, accommodations, activities, rental cars) |
+| `/trips` | User's saved trips |
+| `/monitors` | Flight price monitoring dashboard |
+| `/auth` | Authentication (Supabase-based, unauthenticated users redirect here) |
+
+### API Routes (`app/api/`)
+
+| Endpoint | Purpose |
+|----------|---------|
+| `/api/chat` | Streaming chat with Claude AI for travel planning |
+| `/api/itinerary` | CRUD for travel itineraries; `/api/itinerary/save` for persistence |
+| `/api/flights` | Flight search (mock data) |
+| `/api/flight-monitor` | Price monitoring triggers |
+| `/api/accommodations` | Accommodation search |
+| `/api/activities` | Activity search |
+| `/api/rental-cars` | Rental car search |
+| `/api/auth/session` | Auth session management |
+| `/api/parse-travel-input` | NLP parsing of free-form travel queries |
+| `/api/plan` | Plan generation |
+| `/api/trips` | Trip CRUD |
+| `/api/monitor` | Monitoring status |
+
+### Core Libraries (`lib/`)
+
+- **`lib/ai/`** — Claude AI integration: `planner.ts` (travel plan generation), `travel-itinerary-agent.ts` (itinerary agent), `prompts.ts` (system prompts)
+- **`lib/auth/`** — Supabase auth helpers
+- **`lib/db/`** — Database client and queries
+- **`lib/flights/`** — Flight search logic
+- **`lib/flight-monitor/`** — Background price monitoring with BullMQ
+- **`lib/itinerary/`** — Itinerary data layer
+- **`lib/booking/`** — Booking logic
+- **`lib/accommodations/`, `lib/activities/`, `lib/rental-cars/`** — Domain modules for each booking type
+- **`lib/mock/`** — Mock data for development
+- **`lib/notify/`** — Notification system (Telegram bot via `node-telegram-bot-api`)
+- **`lib/monitor/`** — Monitoring utilities
+
+### Components (`components/`)
+
+- **`components/ui/`** — shadcn/ui primitives (Button, Card, Dialog, etc.)
+- **`components/flights/`** — FlightCard, FlightBottomSheet
+- Domain-specific: `AccommodationSection`, `ActivitySection`, `RentalCarSection`, `ItineraryTab`, `MonitoringTab`
+
+### Database (`supabase/`)
+
+- `supabase/migrations/` — SQL migration files for Supabase
+
+### Tests
+
+- **Unit tests:** `__tests__/` directory, run with vitest
+- **E2E tests:** `tests/` directory with Playwright (`playwright.config.ts`)
+- Test config: `vitest.config.ts` (node environment, `@/` alias)
+
+## Key Technical Notes
+
+- **Next.js 16 breaking changes**: APIs and conventions differ from training data. Read `node_modules/next/dist/docs/` before writing unfamiliar Next.js code.
+- **Worktree compatibility**: `next.config.ts` dynamically finds `node_modules` root to support git worktrees.
+- **Homebrew PATH**: `next.config.ts` injects `/opt/homebrew/bin` into PATH for Turbopack PostCSS worker on macOS.
+- **UI style**: Dark theme with zinc color palette + blue accent. shadcn/ui components with `class-variance-authority` + `tailwind-merge` + `clsx`.
+- **Fonts**: Geist (sans) + Inter, loaded via `next/font/google`.
+
+## Environment Variables
+
+Required in `.env.local`:
+- `ANTHROPIC_API_KEY` — Claude API
+- `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` — Supabase
+- `SERPAPI_KEY` — Search API (not SERP_API_KEY)
+- `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` — Telegram notifications
+- `REDIS_URL` — Redis for BullMQ (optional, for flight monitoring)
+
+---
+
 @AGENTS.md
 
 ---
 
-## 🤝 AI 에이전트 협업 시스템 — Harness Protocol
+## 📚 개인 지식 위키 참조
 
-### 시스템 개요
-단일 프롬프트 수행의 한계를 극복하기 위해 **플래너 → 제너레이터 → 이밸류에이터** 3인 체제로 작동한다.
-컨텍스트 리셋과 외부 평가를 통해 결과물의 품질을 극대화한다.
+작업 시작 전 `/Users/claw/Documents/llmwiki/llmwiki/wiki/index.md` 를 읽어 사용자의 전체 컨텍스트를 파악하라.
+특히 이 프로젝트와 관련된 페이지:
+- `wiki/ai-travel-agent.md` — 이 프로젝트의 위키 페이지 (비전, 현재 상태, 블로커)
+- `wiki/AI-아키텍처-트렌드-2026.md` — Agent Swarm, MoE, 추론 최적화 등 이 프로젝트에 적용할 기술 트렌드
+- `wiki/liquid-ai.md` — 사용자의 다른 AI 프로젝트 (에이전트 파이프라인 패턴 공유)
 
-### 역할 매핑
-
-| 역할 | 에이전트 | 세션 ID | 행동 원칙 |
-|------|---------|---------|----------|
-| **Planner (기획)** | CEO 에이전트 | local_4ceb4a29 | 사용자 요청을 8개 이상의 상세 기능이 포함된 설계서로 확장. 미처 생각하지 못한 UX 요소와 기술 디테일 제안. 전체 작업 로드맵 작성 |
-| **Generator (실행)** | 디자이너 에이전트 | local_62640cda | 플래너 설계서 + 이밸류에이터 기준으로 실제 결과물 생성. 단순 작동 수준을 넘어 디자인 독창성·AI 슬롭 방지 기준을 의식하며 작업 |
-| **Generator (실행)** | 개발자 에이전트 | (신규 시작) | 동일 원칙. 코드 품질 및 성능 기준 준수 |
-| **Generator (실행)** | 여행일정 에이전트 | (신규 시작) | 동일 원칙. 여행 정보 정확성 및 대안 3개 이상 제시 기준 준수 |
-| **Evaluator (평가)** | 검증 에이전트 | local_abf1d986 | 제너레이터 결과물을 독립 시각에서 검증. 실제 실행 테스트(tsc, curl, py_compile 등) 필수. 불합격 시 구체적 재작업 요청 |
-| **Evaluator (평가)** | 형상관리 에이전트 | local_32e8d9bb | 코드 병합 전 최종 품질 게이트. 브랜치명 검토 및 커밋 메시지 표준 준수 확인 |
-
-### 핵심 운영 원칙
-
-**1. 컨텍스트 리셋 (Context Reset)**
-대화가 길어져 앞 내용을 잊지 않도록, 주요 단계마다 상태를 요약하고 새 세션처럼 맑은 상태를 유지한다.
-
-**2. 평가 분리 (Separation of Concerns)**
-만드는 에이전트와 채점하는 에이전트를 반드시 분리한다.
-Generator가 자신의 결과물을 직접 승인하는 것은 금지된다.
-
-**3. 가중치 기반 평가**
-이미 잘하는 것(기능 동작)보다 약한 부분(디자인 독창성, 성능, UX 완성도)에 더 높은 가중치를 두어 평가한다.
-단순 템플릿 수준의 결과물(AI Slop)은 즉시 불합격 처리한다.
-
-**4. 피드백 루프 (Feedback Loop)**
-목표 점수에 도달할 때까지 최대 3회 재작업을 반복하며 품질을 끌어올린다.
-
-### 핸드오프 체크리스트 (작업 완료 기준)
-
-- [ ] 사용자의 요청이 CEO(Planner)에 의해 상세 설계서로 확장되었는가?
-- [ ] Generator가 설계서 기준으로 결과물을 생성했는가?
-- [ ] Evaluator(검증 에이전트)가 실제 실행 환경에서 검증을 완료했는가?
-- [ ] 형상관리 에이전트가 브랜치명·커밋 메시지를 검토 후 main 머지했는가?
-- [ ] 최종 완료 보고가 사용자에게 전달되었는가?
-
-### 디자이너 에이전트 전용 추가 원칙
-DESIGN_SPECIFICATION.md → CEO + 개발자 리뷰 → 사용자 승인 → 구현 순서를 반드시 준수한다.
-(상세 내용은 SOUL.md 참조)
+위키에서 얻은 인사이트로 이 프로젝트의 설계 결정을 보강할 수 있다면 적극 활용하라.

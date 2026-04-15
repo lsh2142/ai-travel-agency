@@ -48,3 +48,7 @@ next-env.d.ts
 # Python
 __pycache__/
 *.pyc
+
+# Test artifacts
+/test-results/
+travel_env
